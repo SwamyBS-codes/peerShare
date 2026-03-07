@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: p2p-file-sharing-network
+    env: node
+    rootDir: .
+    buildCommand: npm install; npm --prefix client install; npm --prefix server install; npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SESSION_TTL_MS
+        value: 900000
+      - key: ROOM_MAX_PEERS
+        value: 2
+      - key: SIGNAL_RATE_LIMIT_PER_SEC
+        value: 45
