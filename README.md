@@ -17,7 +17,6 @@ New here? This README gets you from a fresh clone to a running, tested applicati
 - Modules
 - Authentication & authorization
 - Testing
-- Deployment
 - Scripts reference
 - Coding conventions
 - Troubleshooting
@@ -155,11 +154,6 @@ The application uses Jest for unit tests on the frontend.
 ```bash
 npm run test     # Run all unit tests
 ```
-
-## Deployment
-Render deployment is configured out-of-the-box via `render.yaml`.
-AWS hosting can be done via **AWS App Runner** or **AWS Elastic Beanstalk** (with Application Load Balancer supporting WebSockets).
-
 ## Scripts reference
 | Script | Purpose |
 | :--- | :--- |
