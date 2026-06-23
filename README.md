@@ -31,7 +31,6 @@ New here? This README gets you from a fresh clone to a running, tested applicati
 | Auth / Security | HMAC SHA-256 Tokens |
 | Signaling Protocol | WebSockets (via `ws` library) |
 | P2P Web Standard | WebRTC (RTCDataChannel, RTCPeerConnection) |
-| Error tracking | Sentry |
 | Tests | Jest (Frontend), manual browser scripts |
 
 ## Architecture
