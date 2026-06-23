@@ -16,10 +16,9 @@ function NavItem({ to, label, onClick }) {
       to={to}
       onClick={onClick}
       className={({ isActive }) =>
-        `hover-lift rounded-full px-4 py-2 text-sm font-semibold transition ${
-          isActive
-            ? 'bg-sky-500/15 text-sky-600 dark:bg-sky-400/20 dark:text-sky-300'
-            : 'text-slate-700 hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-slate-700/50'
+        `relative px-4 py-2 text-sm font-semibold transition-all duration-200 rounded-xl ${isActive
+          ? 'bg-slate-200/60 text-indigo-600 dark:bg-slate-800/80 dark:text-indigo-400'
+          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-300 dark:hover:text-white dark:hover:bg-slate-800/40'
         }`
       }
     >
@@ -32,64 +31,87 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
   const [open, setOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/40 bg-white/70 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-950/70">
-      <nav className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-        <NavLink to="/" className="group inline-flex items-center gap-3 text-xl font-black tracking-tight text-slate-900 dark:text-white">
-          <BrandMark className="h-10 w-10 transition duration-300 group-hover:rotate-6" />
-          <span>PeerShare</span>
+    <header className="sticky top-0 z-40 w-full border-b border-slate-200/30 bg-white/75 backdrop-blur-md dark:border-slate-800/30 dark:bg-slate-950/75">
+      <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6">
+        <NavLink to="/" className="flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+          <BrandMark className="h-9 w-9" />
+          <span className="font-display tracking-wide font-bold bg-gradient-to-r from-slate-950 via-slate-800 to-indigo-600 bg-clip-text text-transparent dark:from-white dark:via-slate-200 dark:to-indigo-400">
+            PeerShare
+          </span>
         </NavLink>
 
+        {/* Desktop Navigation */}
         <div className="hidden items-center gap-2 md:flex">
           {navItems.map((item) => (
             <NavItem key={item.to} to={item.to} label={item.label} />
           ))}
-          <a
-            href="https://github.com/swamybs2005"
-            target="_blank"
-            rel="noreferrer"
-            className="hover-lift rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-slate-700/50"
-          >
-            GitHub
-          </a>
+
           <button
             type="button"
             onClick={onToggleDarkMode}
-            className="hover-lift rounded-full border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-sky-500 hover:text-sky-600 dark:border-slate-700 dark:text-slate-200 dark:hover:border-sky-300 dark:hover:text-sky-300"
+            className="ml-2 p-2 rounded-xl border border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-all duration-200"
+            aria-label="Toggle dark mode"
           >
-            {darkMode ? 'Sun' : 'Moon'}
+            {darkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+              </svg>
+            )}
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 md:hidden dark:border-slate-700 dark:text-slate-200"
-        >
-          Menu
-        </button>
+        {/* Mobile Navigation Toggle */}
+        <div className="flex items-center gap-2 md:hidden">
+          <button
+            type="button"
+            onClick={onToggleDarkMode}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+              </svg>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300"
+            aria-label="Toggle menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
       </nav>
 
+      {/* Mobile Menu Panel */}
       {open && (
-        <div className="border-t border-slate-200 bg-white/95 px-4 py-3 md:hidden dark:border-slate-800 dark:bg-slate-950/95">
+        <div className="border-t border-slate-200 bg-white/95 px-4 py-4 md:hidden dark:border-slate-800 dark:bg-slate-950/95 shadow-lg animate-fadeIn">
           <div className="flex flex-col gap-2">
             {navItems.map((item) => (
               <NavItem key={item.to} to={item.to} label={item.label} onClick={() => setOpen(false)} />
             ))}
             <a
-              href="https://github.com/"
+              href="https://github.com/swamybs2005"
               target="_blank"
               rel="noreferrer"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200/60 dark:text-slate-200 dark:hover:bg-slate-700/50"
+              className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white transition-colors"
+              onClick={() => setOpen(false)}
             >
               GitHub
             </a>
-            <button
-              type="button"
-              onClick={onToggleDarkMode}
-              className="rounded-full border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-            >
-              {darkMode ? 'Light Mode' : 'Dark Mode'}
-            </button>
           </div>
         </div>
       )}

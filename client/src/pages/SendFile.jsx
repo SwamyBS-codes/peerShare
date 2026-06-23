@@ -5,7 +5,7 @@ import DropZone from '../components/DropZone'
 import ProgressBar from '../components/ProgressBar'
 import QRCodeGenerator from '../components/QRCodeGenerator'
 import { SocketService } from '../services/socketService'
-import { WebRTCService } from '../services/webrtcService'
+import { WebRTCService } from '../services/webrtc'
 
 function inferDefaultSignalingUrl() {
   if (typeof window === 'undefined') {
@@ -57,6 +57,9 @@ export default function SendFile() {
   const [routeType, setRouteType] = useState('unknown')
   const [queue, setQueue] = useState([])
   const [attempt, setAttempt] = useState(0)
+  
+  // UI States
+  const [showConfig, setShowConfig] = useState(false)
 
   const socketRef = useRef(null)
   const webrtcRef = useRef(null)
@@ -380,7 +383,7 @@ export default function SendFile() {
 
     try {
       await navigator.clipboard.writeText(shareLink)
-      toast.success('Link copied')
+      toast.success('Link copied to clipboard')
     } catch {
       toast.error('Unable to copy link')
     }
@@ -406,259 +409,348 @@ export default function SendFile() {
         : 'idle'
 
   return (
-    <section className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8 md:px-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white">Send File</h1>
+    <section className="mx-auto w-full max-w-7xl space-y-8 px-4 py-10 md:px-6 animate-fadeIn">
+      
+      {/* Header Info */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/40 dark:border-slate-800/30 pb-6">
+        <div>
+          <h1 className="text-4xl font-black text-slate-900 dark:text-white tracking-tight">Send Files</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Host a local WebRTC session to transfer files directly.</p>
+        </div>
         <ConnectionStatus state={statusTone} message={status} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl transition hover:shadow-2xl dark:border-slate-800 dark:bg-slate-900/85">
-          <DropZone
-            files={files}
-            onFilesSelected={(selected) => {
-              setFiles(selected)
-              if (selected.length > 0) {
-                toast.success(`${selected.length} file(s) selected`)
-              }
-            }}
-          />
+      <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+        
+        {/* Left Column: Dropzone & Transfer Details */}
+        <div className="space-y-6">
+          <div className="glass-panel rounded-3xl p-6 shadow-md">
+            
+            {/* File Drag Zone */}
+            <DropZone
+              files={files}
+              onFilesSelected={(selected) => {
+                setFiles(selected)
+                if (selected.length > 0) {
+                  toast.success(`${selected.length} file(s) queued`)
+                }
+              }}
+            />
 
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold">Signaling URL</span>
-              <input
-                value={signalingUrl}
-                onChange={(event) => setSignalingUrl(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold">STUN URL</span>
-              <input
-                value={stunUrl}
-                onChange={(event) => setStunUrl(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold">TURN URL (optional)</span>
-              <input
-                value={turnUrl}
-                onChange={(event) => setTurnUrl(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300">
-              <span className="font-semibold">TURN Username</span>
-              <input
-                value={turnUsername}
-                onChange={(event) => setTurnUsername(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300 md:col-span-2">
-              <span className="font-semibold">TURN Credential</span>
-              <input
-                type="password"
-                value={turnCredential}
-                onChange={(event) => setTurnCredential(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-            </label>
-            <label className="space-y-1 text-sm text-slate-600 dark:text-slate-300 md:col-span-2">
-              <span className="font-semibold">Chunk Size (KB)</span>
-              <input
-                type="number"
-                min="4"
-                max="1024"
-                step="4"
-                value={chunkSizeKB}
-                onChange={(event) => setChunkSizeKB(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-              <div className="flex flex-wrap gap-2 pt-1">
-                {CHUNK_SIZE_PRESETS_KB.map((preset) => {
-                  const isActive = Number(chunkSizeKB) === preset
-                  return (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setChunkSizeKB(preset)}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        isActive
-                          ? 'bg-sky-500 text-white shadow-sm shadow-sky-500/35'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {preset} KB
-                    </button>
-                  )
-                })}
+            {/* Action Buttons */}
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/50 dark:border-slate-800/20 pt-6">
+              
+              {/* Share Mode Switcher */}
+              <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-100/60 p-1 dark:border-slate-800 dark:bg-slate-900/60">
+                <button
+                  type="button"
+                  onClick={() => setShareMode('link')}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                    shareMode === 'link'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  Link Share
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShareMode('nearby')}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider transition ${
+                    shareMode === 'nearby'
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-white'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                  }`}
+                >
+                  Nearby Share
+                </button>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Try 64-256 KB for large files. Smaller chunks improve reliability on weak networks.
-              </p>
-            </label>
-          </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1 dark:border-slate-700 dark:bg-slate-800/70">
-              <button
-                type="button"
-                onClick={() => setShareMode('link')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  shareMode === 'link'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-                }`}
-              >
-                Link Mode
-              </button>
-              <button
-                type="button"
-                onClick={() => setShareMode('nearby')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
-                  shareMode === 'nearby'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-                }`}
-              >
-                Nearby Share
-              </button>
+              {/* Action Trigger Handles */}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={startSession}
+                  disabled={files.length === 0}
+                  className="hover-lift flex items-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-md shadow-indigo-600/10 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <span>Prepare Session</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={startTransfer}
+                  disabled={!receiverConnected || files.length === 0 || sending}
+                  className="hover-lift flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white shadow-md shadow-emerald-600/10 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <span>Start Transfer</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={cancelTransfer}
+                  disabled={!sending}
+                  className="rounded-2xl border border-rose-200 bg-rose-500/5 px-5 py-3 font-bold text-rose-600 hover:bg-rose-500/10 disabled:opacity-50 dark:border-rose-900/30 dark:text-rose-400 dark:hover:bg-rose-500/5 transition"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-
-            <button
-              type="button"
-              onClick={startSession}
-              className="hover-lift rounded-xl bg-gradient-to-r from-sky-500 to-indigo-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-sky-500/30 transition"
-            >
-              Generate Link + QR
-            </button>
-            <button
-              type="button"
-              onClick={startTransfer}
-              disabled={!receiverConnected || files.length === 0 || sending}
-              className="hover-lift rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 font-semibold text-white disabled:opacity-50"
-            >
-              Start Transfer
-            </button>
-            <button
-              type="button"
-              onClick={cancelTransfer}
-              disabled={!sending}
-              className="rounded-xl border border-rose-300 px-5 py-2.5 font-semibold text-rose-600 dark:border-rose-700 dark:text-rose-300"
-            >
-              Cancel
-            </button>
           </div>
 
-          <div className="mt-5 space-y-4">
-            <ProgressBar label="Transfer Progress" progress={progress} speed={speed} />
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Files: <strong>{files.length}</strong> | Total size: <strong>{(totalSize / 1024 / 1024).toFixed(2)} MB</strong>
-            </p>
-            <p className="text-sm text-slate-600 dark:text-slate-300">
-              Route: <strong>{routeType === 'relay' ? 'Relayed (TURN)' : routeType === 'direct' ? 'Direct P2P' : 'Detecting...'}</strong>
-              {attempt > 0 ? <span> | Attempt: <strong>{attempt}</strong></span> : null}
-            </p>
+          {/* Collapsible Advanced Configs */}
+          <div className="glass-panel rounded-3xl overflow-hidden shadow-sm transition-all duration-300">
+            <button
+              type="button"
+              onClick={() => setShowConfig(!showConfig)}
+              className="w-full flex items-center justify-between px-6 py-4 font-bold text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition"
+            >
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 010 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>Advanced RTC Settings</span>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition duration-300 ${showConfig ? 'rotate-180' : ''}`}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
 
-            {queue.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200">Transfer Queue</h3>
-                {queue.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-                  >
-                    <span className="max-w-[75%] truncate text-slate-700 dark:text-slate-200">{item.name}</span>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                      item.status === 'sent'
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                        : item.status === 'sending'
-                          ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
-                          : item.status === 'failed'
-                            ? 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                    }`}>
-                      {item.status}
-                    </span>
+            {showConfig && (
+              <div className="px-6 pb-6 pt-2 border-t border-slate-200/50 dark:border-slate-800/20 grid gap-4 md:grid-cols-2 text-sm">
+                <label className="space-y-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">Signaling WS Endpoint</span>
+                  <input
+                    value={signalingUrl}
+                    onChange={(event) => setSignalingUrl(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">STUN Server URL</span>
+                  <input
+                    value={stunUrl}
+                    onChange={(event) => setStunUrl(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">TURN Relay Server URL</span>
+                  <input
+                    value={turnUrl}
+                    onChange={(event) => setTurnUrl(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">TURN Auth Username</span>
+                  <input
+                    value={turnUsername}
+                    onChange={(event) => setTurnUsername(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <label className="space-y-1 md:col-span-2">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">TURN Auth Password / Credential</span>
+                  <input
+                    type="password"
+                    value={turnCredential}
+                    onChange={(event) => setTurnCredential(event.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <div className="space-y-2 md:col-span-2 border-t border-slate-200/50 dark:border-slate-800/20 pt-4">
+                  <span className="font-bold text-slate-600 dark:text-slate-400">WebRTC Data Chunk Size</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {CHUNK_SIZE_PRESETS_KB.map((preset) => {
+                      const isActive = Number(chunkSizeKB) === preset
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setChunkSizeKB(preset)}
+                          className={`rounded-xl px-4 py-1.5 text-xs font-bold transition-all duration-200 ${
+                            isActive
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-350 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {preset} KB
+                        </button>
+                      )
+                    })}
+                    <input
+                      type="number"
+                      min="4"
+                      max="1024"
+                      value={chunkSizeKB}
+                      onChange={(event) => setChunkSizeKB(event.target.value)}
+                      className="ml-2 w-20 rounded-xl border border-slate-200 bg-white/50 px-2 py-1 text-xs text-center text-slate-850 dark:border-slate-800 dark:bg-slate-900/50 dark:text-white font-semibold"
+                    />
+                    <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Custom KB</span>
                   </div>
-                ))}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        <aside className="space-y-4 rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl transition hover:shadow-2xl dark:border-slate-800 dark:bg-slate-900/85">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Share Session</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">Share this link or QR code with the receiver.</p>
-
-          {shareMode === 'nearby' && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/70">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-100">Nearby local code</p>
-              <div className="mt-3 flex items-center gap-2">
-                {(sessionId || '----').padEnd(4, '-').slice(0, 4).split('').map((digit, index) => (
-                  <div
-                    key={`${digit}-${index}`}
-                    className="grid h-11 w-11 place-items-center rounded-lg bg-slate-900 text-lg font-black tracking-wide text-white"
-                  >
-                    {digit}
-                  </div>
-                ))}
+        {/* Right Column: Connection Details, QR, Link Share */}
+        <div className="space-y-6">
+          
+          {/* Active Session Sharing Panel */}
+          <div className="glass-panel rounded-3xl p-6 shadow-md space-y-6">
+            <h2 className="text-lg font-bold text-slate-800 dark:text-white">Share Session</h2>
+            
+            {/* Nearby digit display */}
+            {shareMode === 'nearby' && (
+              <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-4 space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">Nearby Local Code</p>
+                <div className="flex gap-2.5">
+                  {(sessionId || '----').padEnd(4, '-').slice(0, 4).split('').map((digit, index) => (
+                    <div
+                      key={`${digit}-${index}`}
+                      className="grid h-12 w-12 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800 text-xl font-extrabold tracking-wide text-white border border-slate-700/30 shadow-md"
+                    >
+                      {digit}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-450 mt-1">
+                  Receiver can input this 4-digit code directly for quick pairing.
+                </p>
               </div>
-              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                Receiver can enter this 4-digit code for quick nearby connection.
-              </p>
+            )}
+
+            <div className="grid gap-3 text-xs">
+              <div className="rounded-2xl bg-slate-100/50 dark:bg-slate-900/40 p-4 border border-slate-200/40 dark:border-slate-800/10">
+                <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Session Room ID</p>
+                <p className="font-mono text-slate-800 dark:text-slate-200 break-all mt-1.5 font-bold">{sessionId || '-'}</p>
+              </div>
+
+              {shareLink && (
+                <div className="rounded-2xl bg-slate-100/50 dark:bg-slate-900/40 p-4 border border-slate-200/40 dark:border-slate-800/10 relative group">
+                  <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Share Link</p>
+                  <p className="font-mono text-slate-800 dark:text-slate-200 break-all mt-1.5 leading-relaxed mr-8">{shareLink}</p>
+                  <button
+                    type="button"
+                    onClick={copyLink}
+                    className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-200/60 dark:text-slate-500 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition"
+                    title="Copy Link"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0015 2.25h-1.5a2.251 2.251 0 00-2.15 1.586m5.8 0c.065.21.1.433.1.664v.75h-6V4.5c0-.231.035-.454.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v12.75c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V16.5a9 9 0 00-9-9z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-slate-100/50 dark:bg-slate-900/40 p-4 border border-slate-200/40 dark:border-slate-800/10">
+                  <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Remaining Lifespan</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 font-mono">{expiresInLabel}</p>
+                </div>
+                <div className="rounded-2xl bg-slate-100/50 dark:bg-slate-900/40 p-4 border border-slate-200/40 dark:border-slate-800/10">
+                  <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Session Expiry</p>
+                  <p className="text-xs text-slate-850 dark:text-slate-250 mt-1.5 truncate">
+                    {sessionExpiresAt ? new Date(sessionExpiresAt).toLocaleTimeString() : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {receiverToken && (
+                <div className="rounded-2xl bg-slate-100/50 dark:bg-slate-900/40 p-4 border border-slate-200/40 dark:border-slate-800/10 relative group">
+                  <p className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Receiver Security Token</p>
+                  <p className="font-mono text-slate-800 dark:text-slate-200 truncate mt-1.5 mr-8 font-bold">{receiverToken}</p>
+                  <button
+                    type="button"
+                    onClick={copyReceiverToken}
+                    className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-indigo-500 hover:bg-slate-200/60 dark:text-slate-500 dark:hover:text-indigo-400 dark:hover:bg-slate-800 transition"
+                    title="Copy Token"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 7.5V6.108c0-1.135.845-2.098 1.976-2.192.373-.03.748-.057 1.123-.08M15.75 18H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08M15.75 18.75v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5A3.375 3.375 0 006.375 7.5H5.25m11.9-3.664A2.251 2.251 0 0015 2.25h-1.5a2.251 2.251 0 00-2.15 1.586m5.8 0c.065.21.1.433.1.664v.75h-6V4.5c0-.231.035-.454.1-.664M6.75 7.5H4.875c-.621 0-1.125.504-1.125 1.125v12.75c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V16.5a9 9 0 00-9-9z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* QR display */}
+            {shareLink && (
+              <div className="flex flex-col items-center justify-center gap-3 border-t border-slate-200/50 dark:border-slate-800/20 pt-6">
+                <QRCodeGenerator value={shareLink} />
+                <p className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 dark:text-slate-500 mt-2">
+                  Scan QR code on receiver device
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Connection Stats & Progress Panel */}
+          {files.length > 0 && (
+            <div className="glass-panel rounded-3xl p-6 shadow-md space-y-5">
+              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Transfer Progress</h2>
+              
+              <ProgressBar 
+                label="Overall Progress" 
+                progress={progress} 
+                speed={speed} 
+                totalBytes={totalSize} 
+              />
+              
+              <div className="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-t border-slate-200/50 dark:border-slate-800/20 pt-4">
+                <div>
+                  <p>Route Type</p>
+                  <p className="text-sm font-extrabold text-slate-800 dark:text-slate-250 mt-1 font-sans">
+                    {routeType === 'relay' ? (
+                      <span className="text-amber-500">Relayed (TURN)</span>
+                    ) : routeType === 'direct' ? (
+                      <span className="text-emerald-500">Direct (P2P)</span>
+                    ) : (
+                      <span>Pending...</span>
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p>Active Attempt</p>
+                  <p className="text-sm font-extrabold text-slate-800 dark:text-slate-250 mt-1 font-mono">
+                    {attempt > 0 ? `${attempt} / 2` : 'Idle'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Queue Detail */}
+              {queue.length > 0 && (
+                <div className="space-y-2 border-t border-slate-200/50 dark:border-slate-800/20 pt-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Transfer Queue</p>
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                    {queue.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between rounded-xl bg-slate-50/50 p-3 text-xs dark:bg-slate-900/30 border border-slate-200/40 dark:border-slate-800/10"
+                      >
+                        <span className="max-w-[70%] truncate font-medium text-slate-700 dark:text-slate-350">{item.name}</span>
+                        <span className={`rounded-xl px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                          item.status === 'sent'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                            : item.status === 'sending'
+                              ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                              : item.status === 'failed'
+                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                : 'bg-slate-200/50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
-
-          <div className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-700 dark:text-slate-100">Session ID</p>
-            <p className="break-all text-slate-600 dark:text-slate-300">{sessionId || '-'}</p>
-          </div>
-
-          <div className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-700 dark:text-slate-100">Share Link</p>
-            <p className="break-all text-slate-600 dark:text-slate-300">{shareLink || 'Generate a session to create link'}</p>
-          </div>
-
-          <div className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-700 dark:text-slate-100">Session Expiry</p>
-            <p className="text-slate-600 dark:text-slate-300">{expiresInLabel}</p>
-          </div>
-
-          <div className="rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800/60">
-            <p className="font-semibold text-slate-700 dark:text-slate-100">Receiver Token</p>
-            <p className="break-all text-slate-600 dark:text-slate-300">{receiverToken || '-'}</p>
-          </div>
-
-          <button
-            type="button"
-            onClick={copyLink}
-            disabled={!shareLink}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-          >
-            Copy Link
-          </button>
-
-          <button
-            type="button"
-            onClick={copyReceiverToken}
-            disabled={!receiverToken}
-            className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-          >
-            Copy Receiver Token
-          </button>
-
-          <div className="flex justify-center">
-            <QRCodeGenerator value={shareLink} />
-          </div>
-
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400">
-            Keep this page open while sending files.
-          </p>
-        </aside>
+        </div>
       </div>
     </section>
   )
