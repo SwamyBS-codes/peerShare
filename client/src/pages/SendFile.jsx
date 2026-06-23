@@ -13,11 +13,17 @@ function inferDefaultSignalingUrl() {
   }
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  if (window.location.port === '5173') {
-    return `${wsProtocol}//${window.location.hostname}:3001`
+  const { hostname, port, host } = window.location
+
+  // If we are in local development and the port isn't the backend port, default to backend port 3001
+  const isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local')
+  const isFrontendDevPort = port && port !== '3001' && (isLocalDev || port.startsWith('517') || port === '3000')
+
+  if (isFrontendDevPort) {
+    return `${wsProtocol}//${hostname}:3001`
   }
 
-  return `${wsProtocol}//${window.location.host}`
+  return `${wsProtocol}//${host}`
 }
 
 const DEFAULT_SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || inferDefaultSignalingUrl()
@@ -57,6 +63,7 @@ export default function SendFile() {
   const [routeType, setRouteType] = useState('unknown')
   const [queue, setQueue] = useState([])
   const [attempt, setAttempt] = useState(0)
+  const [activeTransferSize, setActiveTransferSize] = useState(0)
   
   // UI States
   const [showConfig, setShowConfig] = useState(false)
@@ -67,7 +74,25 @@ export default function SendFile() {
   const peerIdRef = useRef(crypto.randomUUID())
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (webrtcRef.current) {
+        const openPeers = webrtcRef.current.getOpenPeerIds()
+        for (const peerId of openPeers) {
+          try {
+            webrtcRef.current.sendControl(peerId, { type: 'peer-exited' })
+          } catch (e) {
+            // Ignore error if connection is already down
+          }
+        }
+        webrtcRef.current.closeAll()
+      }
+      socketRef.current?.close()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       socketRef.current?.close()
       webrtcRef.current?.closeAll()
     }
@@ -236,6 +261,14 @@ export default function SendFile() {
             setStatus('Receiver cancelled transfer')
             toast('Receiver cancelled transfer')
           }
+          if (payload.type === 'peer-exited') {
+            toast.error('Receiver exited the session')
+            setStatus('Receiver exited. Connection closed.')
+            setConnectionState('idle')
+            setReceiverConnected(false)
+            webrtcRef.current?.closeAll()
+            socketRef.current?.close()
+          }
         } catch {
           // Ignore malformed control messages.
         }
@@ -270,8 +303,11 @@ export default function SendFile() {
 
         if (message.type === 'peer-left') {
           setReceiverConnected(false)
-          setStatus('Receiver disconnected')
+          setStatus('Receiver disconnected. Connection closed.')
           setConnectionState('idle')
+          toast.error('Receiver disconnected')
+          webrtcRef.current?.closeAll()
+          socketRef.current?.close()
         }
 
         if (message.type === 'signal') {
@@ -302,7 +338,7 @@ export default function SendFile() {
     webrtcRef.current = webrtc
   }
 
-  const startTransfer = async () => {
+  const performTransfer = async (filesToTransfer) => {
     if (!webrtcRef.current) {
       toast.error('Start a session first')
       return
@@ -323,6 +359,10 @@ export default function SendFile() {
 
     cancelRef.current = false
     setSending(true)
+
+    const transferSize = filesToTransfer.reduce((sum, file) => sum + file.size, 0)
+    setActiveTransferSize(transferSize)
+
     setStatus(`Starting transfer with ${Math.floor(chunkSizeBytes / 1024)} KB chunks...`)
 
     const maxAttempts = 2
@@ -332,31 +372,56 @@ export default function SendFile() {
       try {
         await webrtcRef.current.sendFiles(
           peerId,
-          files,
+          filesToTransfer,
           (value) => setProgress(value),
           (bytesPerSec) => setSpeed(bytesPerSec),
           (message) => setStatus(message),
           () => cancelRef.current,
           chunkSizeBytes,
           (fileId, fileStatus, fileMeta) => {
+            const fileIdSuffix = fileId.substring(fileId.indexOf(':') + 1)
             setQueue((current) =>
-              current.map((item) =>
-                item.id === fileId
+              current.map((item) => {
+                const itemSuffix = item.id.substring(item.id.indexOf(':') + 1)
+                return itemSuffix === fileIdSuffix
                   ? { ...item, status: fileStatus, name: fileMeta?.name || item.name }
-                  : item,
-              ),
+                  : item
+              }),
             )
           },
         )
         setSending(false)
         if (!cancelRef.current) {
-          toast.success('All files sent')
+          toast.success('Files transferred successfully')
+
+          setQueue((current) => {
+            const fileIdSuffixes = filesToTransfer.map(f => `${f.name}:${f.size}:${f.lastModified}`)
+            const nextQueue = current.map((item) => {
+              const itemSuffix = item.id.substring(item.id.indexOf(':') + 1)
+              return fileIdSuffixes.includes(itemSuffix)
+                ? { ...item, status: 'sent' }
+                : item
+            })
+
+            const hasRemaining = nextQueue.some(item => item.status !== 'sent')
+            if (!hasRemaining) {
+              setFiles([])
+              return []
+            }
+            return nextQueue
+          })
         }
         return
       } catch (error) {
         if (currentAttempt >= maxAttempts || cancelRef.current) {
+          const fileIdSuffixes = filesToTransfer.map(f => `${f.name}:${f.size}:${f.lastModified}`)
           setQueue((current) =>
-            current.map((item) => (item.status === 'sent' ? item : { ...item, status: 'failed' })),
+            current.map((item) => {
+              const itemSuffix = item.id.substring(item.id.indexOf(':') + 1)
+              return fileIdSuffixes.includes(itemSuffix) && item.status !== 'sent'
+                ? { ...item, status: 'failed' }
+                : item
+            }),
           )
           setSending(false)
           setStatus('Transfer failed')
@@ -368,6 +433,44 @@ export default function SendFile() {
         setStatus(`Transfer interrupted. Retrying (${currentAttempt}/${maxAttempts})...`)
         await new Promise((resolve) => setTimeout(resolve, 900))
       }
+    }
+  }
+
+  const startTransfer = () => performTransfer(files)
+
+  const retrySingleFile = (queueId) => {
+    const parts = queueId.split(':')
+    const index = parseInt(parts[0], 10)
+    const file = files[index]
+    if (file) {
+      setQueue((current) =>
+        current.map((item) => (item.id === queueId ? { ...item, status: 'pending' } : item)),
+      )
+      performTransfer([file])
+    }
+  }
+
+  const retryFailedFiles = () => {
+    const failedItems = queue.filter((item) => item.status === 'failed')
+    const filesToRetry = []
+
+    setQueue((current) =>
+      current.map((item) =>
+        item.status === 'failed' ? { ...item, status: 'pending' } : item,
+      ),
+    )
+
+    for (const item of failedItems) {
+      const parts = item.id.split(':')
+      const index = parseInt(parts[0], 10)
+      const file = files[index]
+      if (file) {
+        filesToRetry.push(file)
+      }
+    }
+
+    if (filesToRetry.length > 0) {
+      performTransfer(filesToRetry)
     }
   }
 
@@ -485,6 +588,17 @@ export default function SendFile() {
                 >
                   <span>Start Transfer</span>
                 </button>
+
+                {queue.some((item) => item.status === 'failed') && (
+                  <button
+                    type="button"
+                    onClick={retryFailedFiles}
+                    disabled={!receiverConnected || sending}
+                    className="hover-lift flex items-center gap-2 rounded-2xl bg-amber-600 px-5 py-3 font-bold text-white shadow-md shadow-amber-600/10 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <span>Retry Failed Files</span>
+                  </button>
+                )}
                 
                 <button
                   type="button"
@@ -697,7 +811,7 @@ export default function SendFile() {
                 label="Overall Progress" 
                 progress={progress} 
                 speed={speed} 
-                totalBytes={totalSize} 
+                totalBytes={activeTransferSize || totalSize} 
               />
               
               <div className="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-t border-slate-200/50 dark:border-slate-800/20 pt-4">
@@ -731,18 +845,30 @@ export default function SendFile() {
                         key={item.id}
                         className="flex items-center justify-between rounded-xl bg-slate-50/50 p-3 text-xs dark:bg-slate-900/30 border border-slate-200/40 dark:border-slate-800/10"
                       >
-                        <span className="max-w-[70%] truncate font-medium text-slate-700 dark:text-slate-350">{item.name}</span>
-                        <span className={`rounded-xl px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
-                          item.status === 'sent'
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                            : item.status === 'sending'
-                              ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
-                              : item.status === 'failed'
-                                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                                : 'bg-slate-200/50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                        }`}>
-                          {item.status}
-                        </span>
+                        <span className="max-w-[60%] truncate font-medium text-slate-700 dark:text-slate-350">{item.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className={`rounded-xl px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wider ${
+                            item.status === 'sent'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                              : item.status === 'sending'
+                                ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                : item.status === 'failed'
+                                  ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                                  : 'bg-slate-200/50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                          }`}>
+                            {item.status}
+                          </span>
+                          {item.status === 'failed' && (
+                            <button
+                              type="button"
+                              onClick={() => retrySingleFile(item.id)}
+                              className="rounded-lg bg-indigo-600 px-2.5 py-1 text-[10px] font-bold text-white hover:bg-indigo-500 transition-all duration-200 active:scale-95"
+                              title="Retry sending this file"
+                            >
+                              Retry
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

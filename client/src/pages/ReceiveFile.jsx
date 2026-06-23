@@ -11,11 +11,17 @@ function inferDefaultSignalingUrl() {
   }
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  if (window.location.port === '5173') {
-    return `${wsProtocol}//${window.location.hostname}:3001`
+  const { hostname, port, host } = window.location
+
+  // If we are in local development and the port isn't the backend port, default to backend port 3001
+  const isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local')
+  const isFrontendDevPort = port && port !== '3001' && (isLocalDev || port.startsWith('517') || port === '3000')
+
+  if (isFrontendDevPort) {
+    return `${wsProtocol}//${hostname}:3001`
   }
 
-  return `${wsProtocol}//${window.location.host}`
+  return `${wsProtocol}//${host}`
 }
 
 const DEFAULT_SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || inferDefaultSignalingUrl()
@@ -73,7 +79,26 @@ export default function ReceiveFile() {
   })
 
   useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (webrtcRef.current) {
+        const openPeers = webrtcRef.current.getOpenPeerIds()
+        for (const peerId of openPeers) {
+          try {
+            webrtcRef.current.sendControl(peerId, { type: 'peer-exited' })
+          } catch (e) {
+            // Ignore error if connection is already down
+          }
+        }
+        webrtcRef.current.closeAll()
+      }
+      socketRef.current?.close()
+      cleanupCurrentTransfer()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       socketRef.current?.close()
       webrtcRef.current?.closeAll()
       cleanupCurrentTransfer()
@@ -197,8 +222,11 @@ export default function ReceiveFile() {
 
         if (message.type === 'peer-left') {
           setConnectionState('idle')
-          setStatus('Sender left the room')
-          toast('Sender left')
+          setJoined(false)
+          setStatus('Sender left the room. Connection closed.')
+          toast.error('Sender left the room')
+          webrtcRef.current?.closeAll()
+          socketRef.current?.close()
         }
 
         if (message.type === 'signal') {
@@ -311,6 +339,15 @@ export default function ReceiveFile() {
       )
       cleanupCurrentTransfer()
       toast('Transfer cancelled by sender')
+    }
+
+    if (payload.type === 'peer-exited') {
+      setStatus('Sender exited. Connection closed.')
+      setConnectionState('idle')
+      setJoined(false)
+      toast.error('Sender exited the session')
+      webrtcRef.current?.closeAll()
+      socketRef.current?.close()
     }
   }
 

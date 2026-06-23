@@ -20,7 +20,7 @@ if (hasClientDist) {
   app.use(express.static(clientDistDir));
 
   // Catch-all route to fallback to index.html for SPA router support
-  app.get('*', (req, res) => {
+  app.get(/.*/, (req, res) => {
     if (req.path.startsWith('/health') || req.path.startsWith('/session')) {
       res.status(404).json({ ok: false, message: 'Not found' });
       return;
