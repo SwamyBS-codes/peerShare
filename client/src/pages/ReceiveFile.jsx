@@ -7,13 +7,13 @@ import { WebRTCService } from '../services/webrtc'
 
 function inferDefaultSignalingUrl() {
   if (typeof window === 'undefined') {
-    return 'ws://localhost:3001'
+    return 'wss://peershare-signalling.duckdns.org'
   }
 
   const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const { hostname, port, host } = window.location
+  const { hostname, port } = window.location
 
-  // If we are in local development and the port isn't the backend port, default to backend port 3001
+  // Prefer the local signalling server while developing on localhost.
   const isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.endsWith('.local')
   const isFrontendDevPort = port && port !== '3001' && (isLocalDev || port.startsWith('517') || port === '3000')
 
@@ -21,7 +21,7 @@ function inferDefaultSignalingUrl() {
     return `${wsProtocol}//${hostname}:3001`
   }
 
-  return `${wsProtocol}//${host}`
+  return 'wss://peershare-signalling.duckdns.org'
 }
 
 const DEFAULT_SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || inferDefaultSignalingUrl()
