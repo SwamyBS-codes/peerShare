@@ -8,7 +8,7 @@ const router = express.Router();
 /**
  * Health check endpoint showing system metrics and uptime status.
  */
-router.get('/health', (req, res) => {
+router.get('/', (req, res) => {
   const { activeRooms, activePeers } = getActiveStats();
   res.json({
     ok: true,
@@ -17,6 +17,7 @@ router.get('/health', (req, res) => {
     now: Date.now(),
     sessionTtlMs: SESSION_TTL_MS,
   });
+  console.log("signalling server is running")
 });
 
 /**
