@@ -28,9 +28,9 @@ function inferDefaultSignalingUrl() {
 
 const DEFAULT_SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || inferDefaultSignalingUrl()
 const DEFAULT_STUN_URL = import.meta.env.VITE_STUN_URL || 'stun:stun.l.google.com:19302'
-const DEFAULT_TURN_URL = import.meta.env.VITE_TURN_URL || ''
-const DEFAULT_TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || ''
-const DEFAULT_TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || ''
+const DEFAULT_TURN_URL = import.meta.env.VITE_TURN_URL || 'turn:16.176.103.2:3478?transport=udp,turn:16.176.103.2:3478?transport=tcp'
+const DEFAULT_TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || 'test'
+const DEFAULT_TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || 'test123'
 const CHUNK_SIZE_PRESETS_KB = [32, 64, 128, 256, 512]
 const INITIAL_SHARE_MODE =
   new URLSearchParams(window.location.search).get('mode') === 'nearby' ? 'nearby' : 'link'
@@ -124,6 +124,11 @@ export default function SendFile() {
 
   const totalSize = useMemo(() => files.reduce((sum, file) => sum + file.size, 0), [files])
 
+  const normalizeTurnUrls = (value) => value
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+
   const iceServers = useMemo(() => {
     const servers = []
 
@@ -131,9 +136,10 @@ export default function SendFile() {
       servers.push({ urls: stunUrl.trim() })
     }
 
-    if (turnUrl.trim() && turnUsername.trim() && turnCredential.trim()) {
+    const turnUrls = normalizeTurnUrls(turnUrl)
+    if (turnUrls.length && turnUsername.trim() && turnCredential.trim()) {
       servers.push({
-        urls: turnUrl.trim(),
+        urls: turnUrls.length > 1 ? turnUrls : turnUrls[0],
         username: turnUsername.trim(),
         credential: turnCredential.trim(),
       })
@@ -156,7 +162,7 @@ export default function SendFile() {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ roomId }),
+      body: JSON.stringify({  roomId}),
     })
 
     if (!response.ok) {
@@ -189,7 +195,8 @@ export default function SendFile() {
       setSessionToken(senderToken)
       setReceiverToken(receiverToken)
       setSessionExpiresAt(created.expiresAt || null)
-    } catch (error) {
+    } 
+    catch (error) {
       setConnectionState('failed')
       setStatus('Failed to create session')
       toast.error(error?.message || 'Failed to create session')
