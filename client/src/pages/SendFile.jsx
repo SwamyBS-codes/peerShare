@@ -548,6 +548,15 @@ export default function SendFile() {
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Send Files</h1>
             <ConnectionStatus state={statusTone} message={status} />
+            {routeType !== 'unknown' && (
+              <span className={`rounded-2xl border px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-sm transition-all duration-300 ${
+                routeType === 'relay'
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+              }`}>
+                Route: {routeType === 'relay' ? 'TURN' : 'P2P'}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold">Establish a secure local WebRTC tunnel to transfer files directly.</p>
         </div>
