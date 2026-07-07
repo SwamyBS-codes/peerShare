@@ -1,0 +1,17 @@
+{
+  "short_name": "PeerShare",
+  "name": "PeerShare - P2P Secure File Share",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a"
+}

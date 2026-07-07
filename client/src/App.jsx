@@ -31,7 +31,7 @@ function App() {
 
         <div className="relative z-10 flex flex-col min-h-screen">
           <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />
-          <main className="flex-grow flex items-center justify-center">
+          <main className="flex-grow flex items-center justify-center pt-24 pb-12">
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/send" element={<SendFile />} />

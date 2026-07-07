@@ -39,14 +39,30 @@ export class ConnectionManager {
     }
 
     pc.ondatachannel = (event) => {
-      state.channel = event.channel
-      dataChannelHandler.attachDataChannel(peerId, state.channel)
+      const channel = event.channel
+      if (channel.label === 'peershare-control') {
+        state.controlChannel = channel
+        state.channel = channel // for backward compatibility
+      } else if (channel.label.startsWith('peershare-data-')) {
+        if (!state.dataChannels) state.dataChannels = []
+        state.dataChannels.push(channel)
+        state.dataChannels.sort((a, b) => a.label.localeCompare(b.label))
+      }
+      dataChannelHandler.attachDataChannel(peerId, channel)
     }
 
     if (initiator) {
-      const channel = pc.createDataChannel('peershare', { ordered: true })
-      state.channel = channel
-      dataChannelHandler.attachDataChannel(peerId, channel)
+      const controlCh = pc.createDataChannel('peershare-control', { ordered: true })
+      state.controlChannel = controlCh
+      state.channel = controlCh // for backward compatibility
+      dataChannelHandler.attachDataChannel(peerId, controlCh)
+
+      state.dataChannels = []
+      for (let i = 0; i < 4; i++) {
+        const dataCh = pc.createDataChannel(`peershare-data-${i}`, { ordered: false })
+        state.dataChannels.push(dataCh)
+        dataChannelHandler.attachDataChannel(peerId, dataCh)
+      }
 
       const offer = await pc.createOffer()
       await pc.setLocalDescription(offer)

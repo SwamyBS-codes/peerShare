@@ -21,12 +21,12 @@ export default function ConnectionStatus({ state, message }) {
   const activeTone = tones[state] || tones.idle
 
   return (
-    <div className={`flex items-center gap-2.5 rounded-2xl border px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-sm transition-all duration-300 ${activeTone.bg}`}>
-      <span className="relative flex h-2.5 w-2.5">
+    <div className={`flex items-center gap-2.5 rounded-2xl border px-4 py-2 text-xs font-bold uppercase tracking-wider shadow-sm transition-all duration-300 min-w-0 max-w-full sm:max-w-md md:max-w-lg ${activeTone.bg}`}>
+      <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
         <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${activeTone.dot}`} />
         <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${activeTone.dot}`} />
       </span>
-      <span>{message}</span>
+      <span className="truncate">{message}</span>
     </div>
   )
 }
