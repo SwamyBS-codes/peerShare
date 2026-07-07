@@ -30,7 +30,7 @@ function inferDefaultSignalingUrl() {
 
 const DEFAULT_SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL || inferDefaultSignalingUrl()
 const DEFAULT_STUN_URL = import.meta.env.VITE_STUN_URL || 'stun:stun.l.google.com:19302'
-const DEFAULT_TURN_URL = import.meta.env.VITE_TURN_URL || 'turn:16.176.103.2:3478?transport=udp,turn:16.176.103.2:3478?transport=tcp'
+const DEFAULT_TURN_URL = import.meta.env.VITE_TURN_URL || 'turn:3.27.205.223:3478?transport=udp,turn:3.27.205.223:3478?transport=tcp'
 const DEFAULT_TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME || 'test'
 const DEFAULT_TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL || 'test123'
 
