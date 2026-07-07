@@ -80,8 +80,13 @@ export default function SendFile() {
 
   const socketRef = useRef(null)
   const webrtcRef = useRef(null)
+  const connectionStateRef = useRef('idle')
   const cancelRef = useRef(false)
   const peerIdRef = useRef(crypto.randomUUID())
+
+  useEffect(() => {
+    connectionStateRef.current = connectionState
+  }, [connectionState])
 
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -264,10 +269,12 @@ export default function SendFile() {
         }
       },
       onConnectionState: (_peerId, state) => {
-        if (state === 'failed') {
+        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
           setConnectionState('failed')
-          setStatus('Peer connection failed')
-          toast.error('Peer connection failed')
+          setReceiverConnected(false)
+          setStatus('Connection lost.')
+          toast.error('Connection closed')
+          webrtcRef.current?.closeAll()
         }
       },
       onRouteType: (_peerId, nextRouteType) => {
@@ -323,6 +330,10 @@ export default function SendFile() {
         }
 
         if (message.type === 'peer-left') {
+          if (connectionStateRef.current === 'connected') {
+            console.log('[Signaling] Receiver left signaling room, but WebRTC is active. Keeping connection alive.')
+            return
+          }
           setReceiverConnected(false)
           setStatus('Receiver disconnected. Connection closed.')
           setConnectionState('idle')

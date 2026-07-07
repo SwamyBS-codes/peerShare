@@ -79,9 +79,14 @@ export default function ReceiveFile() {
 
   const socketRef = useRef(null)
   const webrtcRef = useRef(null)
+  const connectionStateRef = useRef('idle')
   const peerIdRef = useRef(crypto.randomUUID())
   const hashWorkerRef = useRef(null)
   const fsaDirectoryHandleRef = useRef(null)
+
+  useEffect(() => {
+    connectionStateRef.current = connectionState
+  }, [connectionState])
   const transferRef = useRef({
     id: '',
     files: {},
@@ -190,10 +195,13 @@ export default function ReceiveFile() {
         }
       },
       onConnectionState: (_peerId, state) => {
-        if (state === 'failed') {
+        if (state === 'failed' || state === 'disconnected' || state === 'closed') {
           setConnectionState('failed')
-          setStatus('Peer connection failed')
-          toast.error('Peer connection failed')
+          setJoined(false)
+          setStatus('Connection lost.')
+          toast.error('Connection closed')
+          webrtcRef.current?.closeAll()
+          socketRef.current?.close()
         }
       },
       onRouteType: (_peerId, nextRouteType) => {
@@ -238,6 +246,10 @@ export default function ReceiveFile() {
         }
 
         if (message.type === 'peer-left') {
+          if (connectionStateRef.current === 'connected') {
+            console.log('[Signaling] Sender left signaling room, but WebRTC is active. Keeping connection alive.')
+            return
+          }
           setConnectionState('idle')
           setJoined(false)
           setStatus('Sender left the room. Connection closed.')
