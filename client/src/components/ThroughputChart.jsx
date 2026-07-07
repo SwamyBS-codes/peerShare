@@ -8,7 +8,7 @@ function formatSpeed(bytesPerSec) {
   return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-export default function ThroughputChart({ data = [] }) {
+export default function ThroughputChart({ data = [], status = '' }) {
   const width = 500
   const height = 120
   const padding = 8
@@ -54,11 +54,10 @@ export default function ThroughputChart({ data = [] }) {
         <span>Throughput (Last 10s)</span>
         <span className="text-indigo-400 font-mono">Max: {maxFormatted}</span>
       </div>
-
       <div className="relative h-[120px] w-full">
         {data.length === 0 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-500/60">
-            Waiting for transmission...
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-xs font-bold text-slate-500/60 p-4 text-center">
+            <span>{status || 'Waiting for transmission...'}</span>
           </div>
         ) : (
           <svg

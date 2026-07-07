@@ -260,6 +260,17 @@ export class FileSender {
         }
       }, 2000)
 
+      // Inform receiver that we are preparing/hashing files
+      try {
+        controlCh.send(
+          JSON.stringify({
+            type: 'transfer-preparing'
+          })
+        )
+      } catch (err) {
+        console.warn('[FileSender] Failed to send transfer-preparing signal:', err)
+      }
+
       // Initialize the transfer worker
       this.worker.postMessage({
         type: 'init',

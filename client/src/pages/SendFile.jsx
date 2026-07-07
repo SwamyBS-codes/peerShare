@@ -866,7 +866,7 @@ export default function SendFile() {
                 totalBytes={activeTransferSize || totalSize} 
               />
 
-              <ThroughputChart data={speedHistory} />
+              <ThroughputChart data={speedHistory} status={status} />
               
               <div className="grid grid-cols-2 gap-4 text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-t border-slate-200/50 dark:border-slate-800/20 pt-4">
                 <div>
