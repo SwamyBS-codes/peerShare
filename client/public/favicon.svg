@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" fill="none">
+  <rect width="40" height="40" rx="12" fill="#0b1329"/>
+  <path d="M14 26c-3.3 0-6-2.7-6-6s2.7-6 6-6c2.4 0 4.5 1.5 5.3 3.7l1.4 3.6c.8 2.2 2.9 3.7 5.3 3.7 3.3 0 6-2.7 6-6s-2.7-6-6-6c-2.4 0-4.5 1.5-5.3 3.7l-1.4 3.6c-.8-2.2-2.9-3.7-5.3-3.7" 
+        stroke="url(#loop-grad)" stroke-width="3" stroke-linecap="round"/>
+  <defs>
+    <linearGradient id="loop-grad" x1="8" y1="20" x2="32" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+  </defs>
+</svg>
