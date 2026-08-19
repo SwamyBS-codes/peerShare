@@ -1,14 +1,7 @@
-import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { authService } from '../services/authService'
 import BrandMark from './BrandMark'
-
-const navItems = [
-  { to: '/', label: 'Home' },
-  { to: '/send', label: 'Send File' },
-  { to: '/receive', label: 'Receive File' },
-  { to: '/how-it-works', label: 'How It Works' },
-  { to: '/about', label: 'About' },
-]
 
 function NavItem({ to, label, onClick }) {
   return (
@@ -29,10 +22,39 @@ function NavItem({ to, label, onClick }) {
 
 export default function Navbar({ darkMode, onToggleDarkMode }) {
   const [open, setOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser())
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const handleAuthChange = () => {
+      setCurrentUser(authService.getCurrentUser())
+    }
+    window.addEventListener('auth-change', handleAuthChange)
+    window.addEventListener('auth-expired', handleAuthChange)
+    return () => {
+      window.removeEventListener('auth-change', handleAuthChange)
+      window.removeEventListener('auth-expired', handleAuthChange)
+    }
+  }, [])
+
+  const handleLogout = () => {
+    authService.logout()
+    window.dispatchEvent(new Event('auth-change'))
+    navigate('/login')
+  }
+
+  // Base navigation items when authenticated
+  const authenticatedItems = [
+    { to: '/', label: 'Chat Hub' },
+    { to: '/send', label: 'One-off Send' },
+    { to: '/receive', label: 'One-off Receive' },
+    { to: '/how-it-works', label: 'How It Works' },
+    { to: '/about', label: 'About' },
+  ]
 
   return (
-    <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-6xl rounded-[28px] glass-panel border border-white/20 dark:border-slate-800/40 shadow-xl transition-all duration-300">
-      <nav className="mx-auto flex items-center justify-between px-6 py-3.5">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full glass-panel border-b border-white/10 dark:border-slate-900 shadow-md transition-all duration-300">
+      <nav className="w-full flex items-center justify-between px-8 py-3.5">
         <NavLink to="/" className="flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
           <BrandMark className="h-8 w-8" />
           <span className="font-display tracking-wide font-extrabold bg-gradient-to-r from-slate-950 via-slate-800 to-indigo-600 bg-clip-text text-transparent dark:from-white dark:via-slate-200 dark:to-indigo-400">
@@ -42,9 +64,28 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
 
         {/* Desktop Navigation */}
         <div className="hidden items-center gap-2 md:flex">
-          {navItems.map((item) => (
-            <NavItem key={item.to} to={item.to} label={item.label} />
-          ))}
+          {currentUser ? (
+            <>
+              {authenticatedItems.map((item) => (
+                <NavItem key={item.to} to={item.to} label={item.label} />
+              ))}
+              <div className="h-4 w-[1px] bg-slate-250 dark:bg-slate-850 mx-2" />
+              <span className="text-xs font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest px-3 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+                @{currentUser.userId}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2.5 text-xs font-extrabold tracking-wider uppercase text-rose-500 hover:bg-rose-500/10 border border-transparent rounded-2xl transition duration-300"
+              >
+                Log Out
+              </button>
+            </>
+          ) : (
+            <>
+              <NavItem to="/login" label="Sign In" />
+              <NavItem to="/register" label="Register" />
+            </>
+          )}
 
           <button
             type="button"
@@ -98,20 +139,32 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
 
       {/* Mobile Menu Panel */}
       {open && (
-        <div className="border-t border-slate-200/40 bg-white/95 px-6 py-4 md:hidden dark:border-slate-800/40 dark:bg-slate-950/95 rounded-b-[28px] shadow-lg animate-fadeIn">
+        <div className="border-t border-slate-250/20 bg-white/95 px-6 py-4 md:hidden dark:border-slate-900 dark:bg-slate-950/95 shadow-lg animate-fadeIn">
           <div className="flex flex-col gap-2">
-            {navItems.map((item) => (
-              <NavItem key={item.to} to={item.to} label={item.label} onClick={() => setOpen(false)} />
-            ))}
-            <a
-              href="https://github.com/swamybs2005"
-              target="_blank"
-              rel="noreferrer"
-              className="px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors"
-              onClick={() => setOpen(false)}
-            >
-              GitHub
-            </a>
+            {currentUser ? (
+              <>
+                <span className="text-center text-xs font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest px-3 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-2">
+                  @{currentUser.userId}
+                </span>
+                {authenticatedItems.map((item) => (
+                  <NavItem key={item.to} to={item.to} label={item.label} onClick={() => setOpen(false)} />
+                ))}
+                <button
+                  onClick={() => {
+                    handleLogout()
+                    setOpen(false)
+                  }}
+                  className="w-full text-left px-4 py-2.5 text-xs font-extrabold uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 rounded-2xl transition duration-300"
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <>
+                <NavItem to="/login" label="Sign In" onClick={() => setOpen(false)} />
+                <NavItem to="/register" label="Register" onClick={() => setOpen(false)} />
+              </>
+            )}
           </div>
         </div>
       )}

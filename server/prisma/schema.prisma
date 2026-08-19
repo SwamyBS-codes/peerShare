@@ -1,0 +1,48 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  userId       String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  // Relations
+  sentFriendships     Friendship[] @relation("User1Friendships")
+  receivedFriendships Friendship[] @relation("User2Friendships")
+  sentActivities     Activity[] @relation("ActivitySender")
+  receivedActivities Activity[] @relation("ActivityReceiver")
+}
+
+model Friendship {
+  id          Int      @id @default(autoincrement())
+  userId1     String   @db.Uuid
+  userId2     String   @db.Uuid
+  status      String   @default("pending") // "pending", "accepted", "blocked"
+  requestorId String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  user1 User @relation("User1Friendships", fields: [userId1], references: [id], onDelete: Cascade)
+  user2 User @relation("User2Friendships", fields: [userId2], references: [id], onDelete: Cascade)
+
+  @@unique([userId1, userId2])
+}
+
+model Activity {
+  id         String   @id @default(uuid()) @db.Uuid
+  senderId   String   @db.Uuid
+  receiverId String   @db.Uuid
+  type       String   // "text", "file", "call"
+  content    String?  @db.Text
+  metadata   Json?    // Dynamic JSON containing call durations, file types, etc.
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("ActivitySender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("ActivityReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+}

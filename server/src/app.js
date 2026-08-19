@@ -19,10 +19,9 @@ const hasClientDist = fs.existsSync(clientDistDir);
 if (hasClientDist) {
   app.use(express.static(clientDistDir));
 
-  // Catch-all route to fallback to index.html for SPA router support
   app.get(/.*/, (req, res) => {
-    if (req.path === '/' || req.path.startsWith('/session')) {
-      res.status(404).json({ ok: false, message: 'Not found' });
+    if (req.path.startsWith('/api')) {
+      res.status(404).json({ ok: false, message: 'API Route Not Found' });
       return;
     }
 
