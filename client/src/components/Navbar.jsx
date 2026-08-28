@@ -43,11 +43,8 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
     navigate('/login')
   }
 
-  // Base navigation items when authenticated
   const authenticatedItems = [
     { to: '/', label: 'Chat Hub' },
-    { to: '/send', label: 'One-off Send' },
-    { to: '/receive', label: 'One-off Receive' },
     { to: '/how-it-works', label: 'How It Works' },
     { to: '/about', label: 'About' },
   ]
@@ -70,7 +67,7 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
                 <NavItem key={item.to} to={item.to} label={item.label} />
               ))}
               <div className="h-4 w-[1px] bg-slate-250 dark:bg-slate-850 mx-2" />
-              <span className="text-xs font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest px-3 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
+              <span className="text-xs font-black text-indigo-500 dark:text-indigo-400  tracking-widest px-3 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
                 @{currentUser.userId}
               </span>
               <button

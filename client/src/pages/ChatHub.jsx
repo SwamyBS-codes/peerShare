@@ -71,6 +71,8 @@ export default function ChatHub() {
   const [remoteStream, setRemoteStream] = useState(null)
   const [micMuted, setMicMuted] = useState(false)
   const [camOff, setCamOff] = useState(false)
+  const [videoFullScreen, setVideoFullScreen] = useState(false)
+  const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
 
   // File Transfer State
   const [selectedFile, setSelectedFile] = useState(null)
@@ -86,6 +88,8 @@ export default function ChatHub() {
   const pcRef = useRef(null)
   const localVideoRef = useRef(null)
   const remoteVideoRef = useRef(null)
+  const localStreamRef = useRef(null)
+  const callStartTimeRef = useRef(null)
   const chatEndRef = useRef(null)
   const addContactInputRef = useRef(null)
   const messageFeedRef = useRef(null)
@@ -103,6 +107,7 @@ export default function ChatHub() {
   const fileInviteIdRef = useRef(null)
   const receiverInviteIdRef = useRef(null)
   const selectedFriendRef = useRef(null)
+  const friendsRef = useRef([])
 
   // Pending ICE candidates queues to prevent WebRTC races
   const videoPendingCandidatesRef = useRef([])
@@ -129,16 +134,23 @@ export default function ChatHub() {
           const friendNames = data.friends
             .filter(f => f.status === 'accepted')
             .map(f => f.friendUserId)
-          wsRef.current.send(JSON.stringify({
-            type: 'check-status',
-            friends: friendNames
-          }))
+          if (friendNames.length > 0) {
+            wsRef.current.send(JSON.stringify({
+              type: 'check-status',
+              friends: friendNames
+            }))
+          }
         }
       }
     } catch (err) {
       console.error('Error fetching friends:', err)
     }
   }
+
+  // Keep friendsRef in sync
+  useEffect(() => {
+    friendsRef.current = friends
+  }, [friends])
 
   useEffect(() => {
     fetchFriends()
@@ -183,7 +195,8 @@ export default function ChatHub() {
   // Connect to WebSocket Signaling Server
   useEffect(() => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const signalingHost = window.location.hostname === 'localhost' ? 'localhost:3001' : window.location.host
+    const isDev = window.location.port === '5173' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const signalingHost = isDev ? `${window.location.hostname}:3001` : window.location.host
     const wsUrl = `${protocol}//${signalingHost}?token=${authService.getToken()}`
 
     const socket = new WebSocket(wsUrl)
@@ -191,10 +204,10 @@ export default function ChatHub() {
 
     socket.onopen = () => {
       console.log('[WS] Connected to signaling server.')
-      if (friends.length > 0) {
-        const friendNames = friends
-          .filter(f => f.status === 'accepted')
-          .map(f => f.friendUserId)
+      const friendNames = friendsRef.current
+        .filter(f => f.status === 'accepted')
+        .map(f => f.friendUserId)
+      if (friendNames.length > 0) {
         socket.send(JSON.stringify({
           type: 'check-status',
           friends: friendNames
@@ -330,17 +343,18 @@ export default function ChatHub() {
       cleanupCall()
       cleanupFileTransfer()
     }
-  }, [friends.length])
+  }, [])
 
   // WebRTC Call handshakes
   const initiateWebRTCCall = async (targetUserId) => {
     try {
       setActiveCall({ friendUserId: targetUserId.toLowerCase(), role: 'caller' })
 
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-      setLocalStream(stream)
-      if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream
+      let stream = localStreamRef.current
+      if (!stream) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        setLocalStream(stream)
+        localStreamRef.current = stream
       }
 
       const pc = new RTCPeerConnection(iceServers)
@@ -359,11 +373,9 @@ export default function ChatHub() {
       }
 
       pc.ontrack = (event) => {
+        if (!callStartTimeRef.current) callStartTimeRef.current = Date.now()
         const [rStream] = event.streams
         setRemoteStream(rStream)
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = rStream
-        }
       }
 
       const offer = await pc.createOffer()
@@ -388,10 +400,11 @@ export default function ChatHub() {
         const pc = pcRef.current
 
         if (data.sdp.type === 'offer') {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-          setLocalStream(stream)
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream
+          let stream = localStreamRef.current
+          if (!stream) {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            setLocalStream(stream)
+            localStreamRef.current = stream
           }
 
           const newPc = new RTCPeerConnection(iceServers)
@@ -410,11 +423,9 @@ export default function ChatHub() {
           }
 
           newPc.ontrack = (event) => {
+            if (!callStartTimeRef.current) callStartTimeRef.current = Date.now()
             const [rStream] = event.streams
             setRemoteStream(rStream)
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = rStream
-            }
           }
 
           await newPc.setRemoteDescription(new RTCSessionDescription(data.sdp))
@@ -1060,7 +1071,7 @@ export default function ChatHub() {
     }
   }, [selectedFriend, currentUser.id])
 
-  const sendCallInvite = (inviteMsg = 'Incoming Video Call') => {
+  const sendCallInvite = async (inviteMsg = 'Incoming Video Call') => {
     if (!selectedFriend || !selectedFriend.isOnline) {
       toast.error('Friend is offline.')
       return
@@ -1068,6 +1079,18 @@ export default function ChatHub() {
 
     toast.loading('Calling friend...', { id: 'call' })
     setActiveCall({ friendUserId: selectedFriend.friendUserId.toLowerCase(), role: 'caller' })
+    callStartTimeRef.current = null
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      setLocalStream(stream)
+      localStreamRef.current = stream
+    } catch (err) {
+      console.error('Failed to get local stream', err)
+      toast.error('Could not access camera/microphone')
+      cleanupCall()
+      return
+    }
 
     wsRef.current.send(JSON.stringify({
       type: 'invite',
@@ -1077,20 +1100,46 @@ export default function ChatHub() {
     }))
   }
 
-  const handleRespondInvite = (accepted) => {
+  const handleRespondInvite = async (accepted) => {
     if (!incomingInvite) return
 
-    wsRef.current.send(JSON.stringify({
-      type: 'invite-response',
-      targetUserId: incomingInvite.senderUserId.toLowerCase(),
-      accepted
-    }))
+    const targetUserId = incomingInvite.senderUserId.toLowerCase()
+    setIncomingInvite(null)
 
     if (accepted) {
-      setActiveCall({ friendUserId: incomingInvite.senderUserId.toLowerCase(), role: 'receiver' })
-    }
+      setActiveCall({ friendUserId: targetUserId, role: 'receiver' })
+      callStartTimeRef.current = null
+      
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        setLocalStream(stream)
+        localStreamRef.current = stream
 
-    setIncomingInvite(null)
+        // Send acceptance ONLY after camera is ready to prevent SDP race conditions
+        wsRef.current.send(JSON.stringify({
+          type: 'invite-response',
+          targetUserId,
+          accepted: true
+        }))
+      } catch (err) {
+        console.error('Failed to get local stream', err)
+        toast.error('Could not access camera/microphone')
+        cleanupCall()
+
+        // Send rejection if camera fails to open
+        wsRef.current.send(JSON.stringify({
+          type: 'invite-response',
+          targetUserId,
+          accepted: false
+        }))
+      }
+    } else {
+      wsRef.current.send(JSON.stringify({
+        type: 'invite-response',
+        targetUserId,
+        accepted: false
+      }))
+    }
   }
 
   const handleAcceptInlineFileInvite = (msgId, senderUserId, name, size, note) => {
@@ -1171,18 +1220,53 @@ export default function ChatHub() {
 
   const cleanupCall = () => {
     toast.dismiss('call')
+    
+    // Log call duration
+    if (activeCall && selectedFriendRef.current) {
+      const isCaller = activeCall.role === 'caller'
+      const friendId = selectedFriendRef.current.friendId
+      let content = ''
+      let metadata = { status: 'missed', duration: 0 }
+      
+      if (callStartTimeRef.current) {
+        const durationSec = Math.floor((Date.now() - callStartTimeRef.current) / 1000)
+        const mins = Math.floor(durationSec / 60)
+        const secs = durationSec % 60
+        content = `Video Call - ${mins > 0 ? `${mins}m ` : ''}${secs}s`
+        metadata = { status: 'completed', duration: durationSec }
+      } else {
+        content = 'Missed Call'
+      }
+
+      authService.fetchAuth('/api/activities', {
+        method: 'POST',
+        body: JSON.stringify({
+          receiverId: friendId,
+          type: 'video-call',
+          content,
+          metadata
+        })
+      }).then(res => res.json()).then(data => {
+        if (data.ok && data.activity) {
+          setMessages(prev => [...prev, data.activity])
+        }
+      }).catch(err => console.error('Error logging call', err))
+    }
+
     if (pcRef.current) {
       pcRef.current.close()
       pcRef.current = null
     }
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop())
-      setLocalStream(null)
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop())
+      localStreamRef.current = null
     }
+    setLocalStream(null)
     setRemoteStream(null)
     setActiveCall(null)
     setMicMuted(false)
     setCamOff(false)
+    callStartTimeRef.current = null
   }
 
   // Bind local/remote video elements
@@ -1190,7 +1274,7 @@ export default function ChatHub() {
     if (localStream && localVideoRef.current) {
       localVideoRef.current.srcObject = localStream
     }
-  }, [localStream])
+  }, [localStream, activeCall])
 
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
@@ -1500,6 +1584,24 @@ export default function ChatHub() {
                             </span>
                           </div>
                         </>
+                      ) : m.type === 'video-call' ? (
+                        <>
+                          <div className={`p-4 rounded-2xl max-w-[80%] text-xs leading-relaxed border shadow-md flex flex-col gap-2 ${
+                            isMe
+                              ? 'bg-slate-900 border-indigo-500/30 text-slate-100 rounded-tr-none'
+                              : 'bg-slate-900 border-slate-800 text-slate-100 rounded-tl-none'
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl">{m.metadata?.status === 'missed' ? '🚫' : '📞'}</span>
+                              <div>
+                                <p className="font-extrabold text-slate-100 truncate">{m.content}</p>
+                              </div>
+                            </div>
+                            <span className={`block text-[7px] text-right font-bold uppercase tracking-widest mt-1 opacity-50`}>
+                              {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        </>
                       ) : (
                         <>
                           {/* Show user ID label for incoming if not grouped */}
@@ -1591,17 +1693,45 @@ export default function ChatHub() {
             )}
 
             {/* Message Composer */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-900/80 bg-slate-950/40 flex gap-2">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-slate-900/80 bg-slate-950/40 flex gap-2 relative">
               <input
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
               />
+
+              {/* Attachment Popover Menu */}
+              {showAttachmentMenu && (
+                <div className="absolute bottom-16 left-4 w-48 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-slideUp">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false)
+                      fileInputRef.current?.click()
+                    }}
+                    className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 transition text-sm font-semibold"
+                  >
+                    📄 Document
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachmentMenu(false)
+                      sendCallInvite('Video connection request')
+                    }}
+                    disabled={!selectedFriend.isOnline}
+                    className="flex items-center gap-3 w-full p-2.5 rounded-xl hover:bg-slate-800 text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm font-semibold"
+                  >
+                    📹 Video Call
+                  </button>
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                title="Attach file to share directly"
+                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
+                title="Attachments"
                 className="px-3.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95 text-sm font-bold"
               >
                 +

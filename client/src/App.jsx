@@ -4,9 +4,7 @@ import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-route
 import Navbar from './components/Navbar'
 import About from './pages/About'
 import HowItWorks from './pages/HowItWorks'
-import NearbyShare from './pages/NearbyShare'
-import ReceiveFile from './pages/ReceiveFile'
-import SendFile from './pages/SendFile'
+
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ChatHub from './pages/ChatHub'
@@ -15,7 +13,7 @@ import { authService } from './services/authService'
 function AppContent({ darkMode, setDarkMode, currentUser }) {
   const location = useLocation()
   // Hide footer on dashboard and file share pages to enable full-screen views
-  const isDashboardOrShare = ['/', '/send', '/receive', '/nearby'].includes(location.pathname)
+  const isDashboardOrShare = ['/'].includes(location.pathname)
 
   return (
     <div className={`relative ${isDashboardOrShare ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100 flex flex-col justify-between`}>
@@ -32,18 +30,6 @@ function AppContent({ darkMode, setDarkMode, currentUser }) {
             <Route 
               path="/" 
               element={currentUser ? <ChatHub /> : <Navigate to="/login" replace />} 
-            />
-            <Route 
-              path="/send" 
-              element={currentUser ? <SendFile /> : <Navigate to="/login" replace />} 
-            />
-            <Route 
-              path="/receive" 
-              element={currentUser ? <ReceiveFile /> : <Navigate to="/login" replace />} 
-            />
-            <Route 
-              path="/nearby" 
-              element={currentUser ? <NearbyShare /> : <Navigate to="/login" replace />} 
             />
 
             {/* Guest / Public Routes */}

@@ -9,7 +9,7 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [userId, setUserId] = useState('')
   const [password, setPassword] = useState('')
-  
+
   // Step 2 variables
   const [otp, setOtp] = useState('')
   const [step, setStep] = useState(1) // 1 = Details, 2 = OTP Verification
@@ -37,7 +37,7 @@ export default function Register() {
     try {
       const data = await authService.requestRegisterOtp(email, userId, password)
       toast.success('Verification code dispatched!')
-      
+
       // If server returned OTP (debug mode fallback)
       if (data.otp) {
         setDebugOtp(data.otp)
@@ -98,7 +98,7 @@ export default function Register() {
 
       <div className="relative z-10 p-[1.5px] rounded-[28px] bg-gradient-to-tr from-indigo-500/30 via-purple-500/25 to-pink-500/30 shadow-2xl">
         <div className="p-8 rounded-[27px] bg-slate-900/80 dark:bg-slate-950/80 backdrop-blur-xl flex flex-col items-center">
-          
+
           {/* Logo / Branding */}
           <div className="flex items-center gap-2.5 mb-6">
             <BrandMark className="h-7 w-7 text-indigo-500" />
@@ -180,7 +180,7 @@ export default function Register() {
                   required
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123456"
+                  placeholder="_ _ _ _ _ _"
                   className="w-full px-4 py-3.5 text-center text-2xl tracking-[0.4em] font-black rounded-2xl border border-slate-200/50 bg-white/40 dark:border-slate-800/40 dark:bg-slate-900/60 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition duration-300 dark:text-slate-100"
                 />
               </div>

@@ -1,6 +1,4 @@
 const express = require('express');
-const { getActiveStats } = require('./services/roomManager');
-const { SESSION_TTL_MS } = require('./config');
 
 const { registerRequest, registerVerify, login } = require('./controllers/authController');
 const { getFriends, sendFriendRequest, acceptFriendRequest } = require('./controllers/friendController');
@@ -13,13 +11,9 @@ const router = express.Router();
  * Health check endpoint showing system metrics and uptime status.
  */
 router.get('/', (req, res) => {
-  const { activeRooms, activePeers } = getActiveStats();
   res.json({
     ok: true,
-    activeRooms,
-    activePeers,
     now: Date.now(),
-    sessionTtlMs: SESSION_TTL_MS,
   });
   console.log("signalling server is running");
 });
