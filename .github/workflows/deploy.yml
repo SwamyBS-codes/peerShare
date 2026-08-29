@@ -83,3 +83,9 @@ jobs:
               --env-file ~/.env \
               --restart unless-stopped \
               ghcr.io/${{ env.OWNER_LC }}/peershare-backend:main
+
+            # Wait a few seconds for the container to be fully initialized
+            sleep 5
+            
+            # Run database migrations automatically inside the running container
+            docker exec peershare-backend npx prisma migrate deploy

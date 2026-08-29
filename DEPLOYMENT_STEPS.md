@@ -4,6 +4,16 @@ This document outlines the manual steps you must complete to ensure the automate
 
 ---
 
+## How GHCR (GitHub Container Registry) is Handled
+You do **not** need to manually push your image to GHCR or set up any extra secrets for it! 
+- The GitHub Actions pipeline (in `.github/workflows/deploy.yml`) is configured to automatically build and push the image to GHCR every time you push to the `main` branch.
+- It uses the built-in `GITHUB_TOKEN` to authenticate, so no manual tokens are required.
+- The pipeline will also log your EC2 instance into GHCR automatically using this same token to pull the private image.
+
+*(Note: If the GitHub Action fails with a `403 Forbidden` error when trying to push to GHCR, go to your repository **Settings** -> **Actions** -> **General**, scroll down to **Workflow permissions**, and ensure **Read and write permissions** is selected).*
+
+---
+
 ## Step 1: Add GitHub Secrets
 The automated pipeline needs credentials to log into your EC2 instance securely. 
 
@@ -37,9 +47,9 @@ You must prepare the server environment before the first deployment runs.
    ```bash
    nano ~/.env
    ```
-   Paste all your backend environment variables into this file. Most importantly, your AWS RDS connection string:
+   Paste all your backend environment variables into this file. Most importantly, your Neon DB connection string:
    ```env
-   DATABASE_URL="postgresql://username:password@your-rds-endpoint.amazonaws.com:5432/dbname"
+   DATABASE_URL="postgresql://username:password@ep-name-123456.us-east-2.aws.neon.tech/dbname?sslmode=require"
    JWT_SECRET="your_jwt_secret"
    # ... add any other necessary environment variables
    ```
@@ -47,15 +57,11 @@ You must prepare the server environment before the first deployment runs.
 
 ---
 
-## Step 3: Database Migrations (AWS RDS)
-Since your database is hosted on AWS RDS and separate from the Docker container, you need to ensure the database schema is up-to-date.
+## Step 3: Database Migrations (Neon DB)
+Since your database is hosted on Neon DB, we need to ensure the database schema is kept up-to-date.
 
-**Whenever you make changes to your Prisma schema:**
-You can run migrations from your local machine by temporarily updating your local `.env` with the AWS RDS `DATABASE_URL` and running:
-```bash
-npx prisma migrate deploy
-```
-*(Alternatively, you can SSH into the EC2 instance and run `docker exec -it peershare-backend npx prisma migrate deploy` after the container is running).*
+🎉 **Good News:** I have updated your GitHub Actions pipeline to handle this automatically! 
+Every time your container is deployed, the pipeline will execute `npx prisma migrate deploy` inside the container using the database URL from your EC2 `.env` file. You no longer need to worry about doing this manually.
 
 ---
 
