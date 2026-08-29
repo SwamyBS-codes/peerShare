@@ -192,6 +192,25 @@ export default function ChatHub() {
     }
   }, [selectedFriend])
 
+  const latestHandlersRef = useRef({});
+  useEffect(() => {
+    latestHandlersRef.current = {
+      handleSignalingMessage,
+      handleFileSignalingMessage,
+      setFriends,
+      setIncomingInvite,
+      setMessages,
+      cleanupCall,
+      cleanupFileTransfer,
+      setTransferState,
+      initiateFileWebRTCConnection,
+      initiateWebRTCCall,
+      toast,
+      currentUser,
+      selectedFriendRef
+    };
+  });
+
   // Connect to WebSocket Signaling Server
   useEffect(() => {
     let wsUrl = '';
@@ -215,149 +234,191 @@ export default function ChatHub() {
       wsUrl = `${protocol}//${signalingHost}?token=${authService.getToken()}`
     }
 
-    const socket = new WebSocket(wsUrl)
-    wsRef.current = socket
+    let socket = null;
+    let isMounted = true;
+    let reconnectTimeout = null;
+    let reconnectAttempts = 0;
 
-    socket.onopen = () => {
-      console.log('[WS] Connected to signaling server.')
-      const friendNames = friendsRef.current
-        .filter(f => f.status === 'accepted')
-        .map(f => f.friendUserId)
-      if (friendNames.length > 0) {
-        socket.send(JSON.stringify({
-          type: 'check-status',
-          friends: friendNames
-        }))
-      }
-    }
+    const connectWS = () => {
+      if (!isMounted) return;
+      socket = new WebSocket(wsUrl)
+      wsRef.current = socket
 
-    socket.onmessage = async (event) => {
-      let msg
-      try {
-        msg = JSON.parse(event.data)
-      } catch {
-        return // Safe fallback
-      }
-      console.log('[WS] Received message:', msg)
-
-      switch (msg.type) {
-        case 'status-update': {
-          setFriends((prev) =>
-            prev.map((f) => {
-              const cleanName = f.friendUserId.toLowerCase()
-              if (msg.statuses[cleanName] !== undefined) {
-                return { ...f, isOnline: msg.statuses[cleanName] }
-              }
-              return f
-            })
-          )
-          break;
+      socket.onopen = () => {
+        console.log('[WS] Connected to signaling server.')
+        reconnectAttempts = 0; // reset
+        const friendNames = friendsRef.current
+          .filter(f => f.status === 'accepted')
+          .map(f => f.friendUserId)
+        if (friendNames.length > 0) {
+          socket.send(JSON.stringify({
+            type: 'check-status',
+            friends: friendNames
+          }))
         }
+      }
 
-        case 'incoming-invite': {
-          if (msg.mediaType === 'file') {
-            try {
-              const meta = JSON.parse(msg.inviteMessage)
-              const currentSelFriend = selectedFriendRef.current
+      socket.onmessage = async (event) => {
+        let msg
+        try {
+          msg = JSON.parse(event.data)
+        } catch {
+          return // Safe fallback
+        }
+        console.log('[WS] Received message:', msg)
+        
+        const h = latestHandlersRef.current;
+
+        switch (msg.type) {
+          case 'status-update': {
+            h.setFriends((prev) =>
+              prev.map((f) => {
+                const cleanName = f.friendUserId.toLowerCase()
+                if (msg.statuses[cleanName] !== undefined) {
+                  return { ...f, isOnline: msg.statuses[cleanName] }
+                }
+                return f
+              })
+            )
+            break;
+          }
+
+          case 'incoming-invite': {
+            if (msg.mediaType === 'file') {
+              try {
+                const meta = JSON.parse(msg.inviteMessage)
+                const currentSelFriend = h.selectedFriendRef.current
+                if (currentSelFriend && msg.senderUserId.toLowerCase() === currentSelFriend.friendUserId.toLowerCase()) {
+                  receiverInviteIdRef.current = meta.messageId
+                  const newMsg = {
+                    id: meta.messageId || ('file-invite-' + Date.now()),
+                    senderId: currentSelFriend.friendId,
+                    receiverId: h.currentUser.id,
+                    type: 'file-invite',
+                    content: `Incoming file share: ${meta.name}`,
+                    metadata: {
+                      name: meta.name,
+                      size: meta.size,
+                      note: meta.note || '',
+                      status: 'pending'
+                    },
+                    createdAt: new Date().toISOString()
+                  }
+                  h.setMessages((prev) => [...prev, newMsg])
+                } else {
+                  h.toast(`📁 New file share from @${msg.senderUserId.toLowerCase()}`)
+                }
+              } catch (e) {
+                console.error('Failed to parse incoming file metadata:', e)
+              }
+            } else if (msg.mediaType === 'video') {
+              const currentSelFriend = h.selectedFriendRef.current
               if (currentSelFriend && msg.senderUserId.toLowerCase() === currentSelFriend.friendUserId.toLowerCase()) {
-                receiverInviteIdRef.current = meta.messageId
                 const newMsg = {
-                  id: meta.messageId || ('file-invite-' + Date.now()),
+                  id: 'call-invite-' + Date.now(),
                   senderId: currentSelFriend.friendId,
-                  receiverId: currentUser.id,
-                  type: 'file-invite',
-                  content: `Incoming file share: ${meta.name}`,
-                  metadata: {
-                    name: meta.name,
-                    size: meta.size,
-                    note: meta.note || '',
-                    status: 'pending'
-                  },
+                  receiverId: h.currentUser.id,
+                  type: 'call-invite',
+                  content: `Incoming video call...`,
+                  metadata: { status: 'pending' },
                   createdAt: new Date().toISOString()
                 }
-                setMessages((prev) => [...prev, newMsg])
+                h.setMessages((prev) => [...prev, newMsg])
               } else {
-                toast(`📁 New file share from @${msg.senderUserId.toLowerCase()}`)
+                h.setIncomingInvite({
+                  senderUserId: msg.senderUserId.toLowerCase(),
+                  mediaType: msg.mediaType,
+                  inviteMessage: msg.inviteMessage
+                })
               }
-            } catch (e) {
-              console.error('Failed to parse incoming file metadata:', e)
-            }
-          } else {
-            setIncomingInvite({
-              senderUserId: msg.senderUserId.toLowerCase(),
-              mediaType: msg.mediaType,
-              inviteMessage: msg.inviteMessage
-            })
-          }
-          break;
-        }
-
-        case 'invite-failed': {
-          toast.error(msg.reason || 'Invitation failed.')
-          cleanupCall()
-          setTransferState(null)
-          break;
-        }
-
-        case 'invite-response': {
-          const isAccepted = msg.accepted
-          const responseMsgId = msg.messageId
-
-          if (responseMsgId) {
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === responseMsgId
-                  ? isAccepted
-                    ? { ...m, metadata: { ...m.metadata, status: 'accepted' } }
-                    : { ...m, type: 'text', content: 'File transfer invitation declined', metadata: null }
-                  : m
-              )
-            )
-          }
-
-          if (isAccepted) {
-            toast.success(`@${msg.senderUserId.toLowerCase()} accepted! Connecting...`)
-            if (currentFileRef.current) {
-              initiateFileWebRTCConnection(msg.senderUserId.toLowerCase(), true)
             } else {
-              initiateWebRTCCall(msg.senderUserId.toLowerCase())
+              h.setIncomingInvite({
+                senderUserId: msg.senderUserId.toLowerCase(),
+                mediaType: msg.mediaType,
+                inviteMessage: msg.inviteMessage
+              })
             }
-          } else {
-            toast.error(`@${msg.senderUserId.toLowerCase()} declined your invitation.`)
-            cleanupCall()
-            setTransferState(null)
-            currentFileRef.current = null
+            break;
           }
-          break;
-        }
 
-        case 'signal': {
-          if (msg.data && msg.data.channelType === 'file') {
-            handleFileSignalingMessage(msg.fromUserId.toLowerCase(), msg.data)
-          } else {
-            handleSignalingMessage(msg.fromUserId.toLowerCase(), msg.data)
+          case 'invite-failed': {
+            h.toast.error(msg.reason || 'Invitation failed.')
+            h.cleanupCall()
+            h.setTransferState(null)
+            break;
           }
-          break;
-        }
 
-        case 'error': {
-          toast.error(msg.message || 'Server error occurred.')
-          break;
-        }
+          case 'invite-response': {
+            const isAccepted = msg.accepted
+            const responseMsgId = msg.messageId
 
-        default:
-          break;
+            if (responseMsgId) {
+              h.setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === responseMsgId
+                    ? isAccepted
+                      ? { ...m, metadata: { ...m.metadata, status: 'accepted' } }
+                      : { ...m, type: 'text', content: 'File transfer invitation declined', metadata: null }
+                    : m
+                )
+              )
+            }
+
+            if (isAccepted) {
+              h.toast.success(`@${msg.senderUserId.toLowerCase()} accepted! Connecting...`)
+              if (currentFileRef.current) {
+                h.initiateFileWebRTCConnection(msg.senderUserId.toLowerCase(), true)
+              } else {
+                h.initiateWebRTCCall(msg.senderUserId.toLowerCase())
+              }
+            } else {
+              h.toast.error(`@${msg.senderUserId.toLowerCase()} declined your invitation.`)
+              h.cleanupCall()
+              h.setTransferState(null)
+              currentFileRef.current = null
+            }
+            break;
+          }
+
+          case 'signal': {
+            if (msg.data && msg.data.channelType === 'file') {
+              h.handleFileSignalingMessage(msg.fromUserId.toLowerCase(), msg.data)
+            } else {
+              h.handleSignalingMessage(msg.fromUserId.toLowerCase(), msg.data)
+            }
+            break;
+          }
+
+          case 'error': {
+            h.toast.error(msg.message || 'Server error occurred.')
+            break;
+          }
+
+          default:
+            break;
+        }
+      }
+
+      socket.onclose = () => {
+        console.warn('[WS] Connection closed.')
+        if (isMounted) {
+           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
+           reconnectAttempts++;
+           reconnectTimeout = setTimeout(connectWS, delay);
+        }
       }
     }
 
-    socket.onclose = () => {
-      console.warn('[WS] Connection closed.')
-    }
+    connectWS();
 
     return () => {
-      socket.close()
-      cleanupCall()
-      cleanupFileTransfer()
+      isMounted = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socket) socket.close();
+      if (latestHandlersRef.current.cleanupCall) {
+         latestHandlersRef.current.cleanupCall();
+         latestHandlersRef.current.cleanupFileTransfer();
+      }
     }
   }, [])
 
@@ -368,7 +429,7 @@ export default function ChatHub() {
 
       let stream = localStreamRef.current
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
         setLocalStream(stream)
         localStreamRef.current = stream
       }
@@ -412,6 +473,10 @@ export default function ChatHub() {
 
   const handleSignalingMessage = async (fromUserId, data) => {
     try {
+      if (data.type === 'activity-sync') {
+        setMessages(prev => [...prev, data.activity])
+        return
+      }
       if (data.endCall) {
         toast.info('Call ended by peer')
         cleanupCall()
@@ -423,7 +488,7 @@ export default function ChatHub() {
         if (data.sdp.type === 'offer') {
           let stream = localStreamRef.current
           if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
             setLocalStream(stream)
             localStreamRef.current = stream
           }
@@ -763,12 +828,11 @@ export default function ChatHub() {
       offset += buffer.byteLength
       bytesSentInInterval += buffer.byteLength
 
-      const pct = Math.floor((offset / file.size) * 100)
-      setTransferProgress(pct)
-
       const now = Date.now()
       const elapsed = now - lastTime
-      if (elapsed >= 1000) {
+      if (elapsed >= 500 || offset >= file.size) {
+        const pct = Math.floor((offset / file.size) * 100)
+        setTransferProgress(pct)
         setTransferSpeed(Math.floor((bytesSentInInterval * 1000) / elapsed))
         bytesSentInInterval = 0
         lastTime = now
@@ -785,7 +849,6 @@ export default function ChatHub() {
         }
       } else {
         setTransferState('completed')
-        toast.success('File sent successfully!')
 
         const contentMsg = `Sent file: ${file.name} (${formatSize(file.size)})${fileNoteRef.current ? ` - "${fileNoteRef.current}"` : ''}`
 
@@ -876,12 +939,11 @@ export default function ChatHub() {
       bytesReceivedInInterval += buffer.byteLength
 
       const totalSize = transferFileSize || 1
-      const pct = Math.floor((receivedBytesRef.current / totalSize) * 100)
-      setTransferProgress(pct)
-
       const now = Date.now()
       const elapsed = now - lastTime
-      if (elapsed >= 1000) {
+      if (elapsed >= 500 || receivedBytesRef.current >= totalSize) {
+        const pct = Math.floor((receivedBytesRef.current / totalSize) * 100)
+        setTransferProgress(pct)
         setTransferSpeed(Math.floor((bytesReceivedInInterval * 1000) / elapsed))
         bytesReceivedInInterval = 0
         lastTime = now
@@ -889,7 +951,6 @@ export default function ChatHub() {
 
       if (receivedBytesRef.current >= totalSize) {
         setTransferState('completed')
-        toast.success('File received successfully!')
 
         const blob = new Blob(fileChunksRef.current)
         const downloadUrl = URL.createObjectURL(blob)
@@ -1103,7 +1164,7 @@ export default function ChatHub() {
     callStartTimeRef.current = null
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
       setLocalStream(stream)
       localStreamRef.current = stream
     } catch (err) {
@@ -1121,39 +1182,42 @@ export default function ChatHub() {
     }))
   }
 
+  const answerCall = async (targetUserId) => {
+    setActiveCall({ friendUserId: targetUserId, role: 'receiver' })
+    callStartTimeRef.current = null
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } })
+      setLocalStream(stream)
+      localStreamRef.current = stream
+
+      // Send acceptance ONLY after camera is ready to prevent SDP race conditions
+      wsRef.current.send(JSON.stringify({
+        type: 'invite-response',
+        targetUserId,
+        accepted: true
+      }))
+    } catch (err) {
+      console.error('Failed to get local stream', err)
+      toast.error('Could not access camera/microphone')
+      cleanupCall()
+
+      // Send rejection if camera fails to open
+      wsRef.current.send(JSON.stringify({
+        type: 'invite-response',
+        targetUserId,
+        accepted: false
+      }))
+    }
+  }
+
   const handleRespondInvite = async (accepted) => {
     if (!incomingInvite) return
-
     const targetUserId = incomingInvite.senderUserId.toLowerCase()
     setIncomingInvite(null)
 
     if (accepted) {
-      setActiveCall({ friendUserId: targetUserId, role: 'receiver' })
-      callStartTimeRef.current = null
-      
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
-        setLocalStream(stream)
-        localStreamRef.current = stream
-
-        // Send acceptance ONLY after camera is ready to prevent SDP race conditions
-        wsRef.current.send(JSON.stringify({
-          type: 'invite-response',
-          targetUserId,
-          accepted: true
-        }))
-      } catch (err) {
-        console.error('Failed to get local stream', err)
-        toast.error('Could not access camera/microphone')
-        cleanupCall()
-
-        // Send rejection if camera fails to open
-        wsRef.current.send(JSON.stringify({
-          type: 'invite-response',
-          targetUserId,
-          accepted: false
-        }))
-      }
+      await answerCall(targetUserId)
     } else {
       wsRef.current.send(JSON.stringify({
         type: 'invite-response',
@@ -1266,19 +1330,31 @@ export default function ChatHub() {
         content = 'Missed Call'
       }
 
-      authService.fetchAuth('/api/activities', {
-        method: 'POST',
-        body: JSON.stringify({
-          receiverId: friendId,
-          type: 'video-call',
-          content,
-          metadata
-        })
-      }).then(res => res.json()).then(data => {
-        if (data.ok && data.activity) {
-          setMessages(prev => [...prev, data.activity])
-        }
-      }).catch(err => console.error('Error logging call', err))
+      if (isCaller) {
+        authService.fetchAuth('/api/activities', {
+          method: 'POST',
+          body: JSON.stringify({
+            receiverId: friendId,
+            type: 'video-call',
+            content,
+            metadata
+          })
+        }).then(res => res.json()).then(data => {
+          if (data.ok && data.activity) {
+            setMessages(prev => [...prev, data.activity])
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({
+                type: 'signal',
+                targetUserId: selectedFriendRef.current.friendUserId.toLowerCase(),
+                data: {
+                  type: 'activity-sync',
+                  activity: data.activity
+                }
+              }))
+            }
+          }
+        }).catch(err => console.error('Error logging call', err))
+      }
     }
 
     if (pcRef.current) {
@@ -1610,6 +1686,50 @@ export default function ChatHub() {
                             <span className={`block text-[7px] text-right font-bold uppercase tracking-widest mt-1 opacity-50`}>
                               {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
+                          </div>
+                        </>
+                      ) : m.type === 'call-invite' ? (
+                        <>
+                          <div className={`p-4 rounded-2xl max-w-[80%] text-xs leading-relaxed border shadow-md flex flex-col gap-2 ${
+                            isMe
+                              ? 'bg-slate-900 border-indigo-500/30 text-slate-100 rounded-tr-none'
+                              : 'bg-slate-900 border-slate-800 text-slate-100 rounded-tl-none'
+                          }`}>
+                            <div className="flex flex-col gap-1">
+                              <span className="font-bold text-indigo-400">📞 Video Call</span>
+                              <span className="text-slate-300">{m.content}</span>
+                            </div>
+                            
+                            {!isMe && m.metadata.status === 'pending' && (
+                              <div className="flex gap-2 mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'accepted' } } : msg))
+                                    answerCall(selectedFriend.friendUserId)
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold transition active:scale-95 text-[10px]"
+                                >
+                                  Answer
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'declined' } } : msg))
+                                    wsRef.current.send(JSON.stringify({
+                                      type: 'invite-response',
+                                      targetUserId: selectedFriend.friendUserId.toLowerCase(),
+                                      accepted: false
+                                    }))
+                                  }}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-500 font-extrabold transition active:scale-95 text-[10px]"
+                                >
+                                  Decline
+                                </button>
+                              </div>
+                            )}
+                            {m.metadata.status === 'accepted' && <span className="text-[10px] text-emerald-500 font-bold mt-1">Ongoing...</span>}
+                            {m.metadata.status === 'declined' && <span className="text-[10px] text-rose-500 font-bold mt-1">Declined</span>}
                           </div>
                         </>
                       ) : m.type === 'video-call' ? (
