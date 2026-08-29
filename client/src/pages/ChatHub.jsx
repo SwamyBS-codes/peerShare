@@ -368,7 +368,7 @@ export default function ChatHub() {
 
       let stream = localStreamRef.current
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
         setLocalStream(stream)
         localStreamRef.current = stream
       }
@@ -412,13 +412,18 @@ export default function ChatHub() {
 
   const handleSignalingMessage = async (fromUserId, data) => {
     try {
+      if (data.endCall) {
+        toast.info('Call ended by peer')
+        cleanupCall()
+        return
+      }
       if (data.sdp) {
         const pc = pcRef.current
 
         if (data.sdp.type === 'offer') {
           let stream = localStreamRef.current
           if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
             setLocalStream(stream)
             localStreamRef.current = stream
           }
@@ -1098,7 +1103,7 @@ export default function ChatHub() {
     callStartTimeRef.current = null
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
       setLocalStream(stream)
       localStreamRef.current = stream
     } catch (err) {
@@ -1127,7 +1132,7 @@ export default function ChatHub() {
       callStartTimeRef.current = null
       
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true } })
         setLocalStream(stream)
         localStreamRef.current = stream
 
@@ -1230,6 +1235,13 @@ export default function ChatHub() {
   }
 
   const endCall = () => {
+    if (activeCall && wsRef.current) {
+      wsRef.current.send(JSON.stringify({
+        type: 'signal',
+        targetUserId: activeCall.friendUserId.toLowerCase(),
+        data: { endCall: true }
+      }))
+    }
     cleanupCall()
     toast.success('Call ended.')
   }
@@ -1847,7 +1859,7 @@ export default function ChatHub() {
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-slate-500 font-bold gap-3">
