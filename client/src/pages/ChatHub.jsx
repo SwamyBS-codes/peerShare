@@ -194,10 +194,23 @@ export default function ChatHub() {
 
   // Connect to WebSocket Signaling Server
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const isDev = window.location.port === '5173' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    const signalingHost = isDev ? `${window.location.hostname}:3001` : window.location.host
-    const wsUrl = `${protocol}//${signalingHost}?token=${authService.getToken()}`
+    let wsUrl = '';
+    if (import.meta.env.VITE_API_URL) {
+      try {
+        const urlObj = new URL(import.meta.env.VITE_API_URL);
+        const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl = `${wsProtocol}//${urlObj.host}?token=${authService.getToken()}`;
+      } catch (e) {
+        console.error("Invalid VITE_API_URL", e);
+      }
+    }
+    
+    if (!wsUrl) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const isDev = window.location.port === '5173' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      const signalingHost = isDev ? `${window.location.hostname}:3001` : window.location.host
+      wsUrl = `${protocol}//${signalingHost}?token=${authService.getToken()}`
+    }
 
     const socket = new WebSocket(wsUrl)
     wsRef.current = socket

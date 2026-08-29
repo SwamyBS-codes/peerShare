@@ -95,26 +95,32 @@ async function registerVerify(req, res) {
       });
     }
 
-    // Double check availability inside a transaction to prevent race conditions
-    const user = await prisma.$transaction(async (tx) => {
-      const existingEmail = await tx.user.findUnique({ where: { email: emailTrimmed } });
-      if (existingEmail) throw new Error('Email is already registered.');
+    // Double check availability (race conditions are caught by DB @unique constraints)
+    const existingEmail = await prisma.user.findUnique({ where: { email: emailTrimmed } });
+    if (existingEmail) throw new Error('Email is already registered.');
 
-      const existingUserId = await tx.user.findUnique({ where: { userId: userIdTrimmed } });
-      if (existingUserId) throw new Error('User ID is already taken.');
+    const existingUserId = await prisma.user.findUnique({ where: { userId: userIdTrimmed } });
+    if (existingUserId) throw new Error('User ID is already taken.');
 
-      // 2. Hash Password
-      const passwordHash = await bcrypt.hash(password, 10);
+    // 2. Hash Password
+    const passwordHash = await bcrypt.hash(password, 10);
 
-      // 3. Create User record
-      return tx.user.create({
+    // 3. Create User record
+    let user;
+    try {
+      user = await prisma.user.create({
         data: {
           email: emailTrimmed,
           userId: userIdTrimmed,
           passwordHash
         }
       });
-    });
+    } catch (dbErr) {
+      if (dbErr.code === 'P2002') {
+        throw new Error('Email or User ID is already taken.');
+      }
+      throw dbErr;
+    }
 
     // 4. Issue Session Token
     const token = jwt.sign(

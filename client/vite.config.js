@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://peershare.duckdns.org:3001',
+        target: 'https://peershare.duckdns.org',
         changeOrigin: true,
       }
     }

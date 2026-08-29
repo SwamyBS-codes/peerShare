@@ -1,4 +1,4 @@
-const API_URL = ''; // Relative path, since backend serves static build
+export const API_URL = import.meta.env.VITE_API_URL || ''; // Use Vercel env var or relative path
 
 /**
  * Utility to decode JWT token without external dependencies
