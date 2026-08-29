@@ -116,7 +116,8 @@ export const authService = {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
-    const response = await fetch(url, { ...options, headers })
+    const fullUrl = url.startsWith('/') ? `${API_URL}${url}` : url
+    const response = await fetch(fullUrl, { ...options, headers })
     
     // Handle unauthorized tokens automatically
     if (response.status === 401 || response.status === 403) {
