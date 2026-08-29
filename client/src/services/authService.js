@@ -1,4 +1,5 @@
-export const API_URL = import.meta.env.VITE_API_URL || ''; // Use Vercel env var or relative path
+// eslint-disable-next-line no-undef
+export const API_URL = typeof __BACKEND_URL__ !== 'undefined' ? __BACKEND_URL__ : (import.meta.env.VITE_API_URL || '');
 
 /**
  * Utility to decode JWT token without external dependencies

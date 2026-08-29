@@ -195,13 +195,16 @@ export default function ChatHub() {
   // Connect to WebSocket Signaling Server
   useEffect(() => {
     let wsUrl = '';
-    if (import.meta.env.VITE_API_URL) {
+    // eslint-disable-next-line no-undef
+    const backendUrl = typeof __BACKEND_URL__ !== 'undefined' ? __BACKEND_URL__ : import.meta.env.VITE_API_URL;
+    
+    if (backendUrl) {
       try {
-        const urlObj = new URL(import.meta.env.VITE_API_URL);
+        const urlObj = new URL(backendUrl);
         const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
         wsUrl = `${wsProtocol}//${urlObj.host}?token=${authService.getToken()}`;
       } catch (e) {
-        console.error("Invalid VITE_API_URL", e);
+        console.error("Invalid Backend URL", e);
       }
     }
     
