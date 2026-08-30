@@ -43,7 +43,7 @@ async function createActivity(req, res) {
       return res.status(400).json({ ok: false, message: 'Receiver ID and Type are required.' });
     }
 
-    if (!['text', 'file', 'call'].includes(type)) {
+    if (!['text', 'file', 'call', 'video-call', 'call-invite', 'file-invite'].includes(type)) {
       return res.status(400).json({ ok: false, message: 'Invalid activity type.' });
     }
 
@@ -72,7 +72,40 @@ async function createActivity(req, res) {
   }
 }
 
+/**
+ * Update an existing activity (e.g. mark file-invite as completed)
+ */
+async function updateActivity(req, res) {
+  try {
+    const { id } = req.params;
+    const { type, content, metadata } = req.body;
+
+    const existingLog = await prisma.activity.findUnique({
+      where: { id }
+    });
+
+    if (!existingLog) {
+      return res.status(404).json({ ok: false, message: 'Activity not found.' });
+    }
+
+    const updatedLog = await prisma.activity.update({
+      where: { id },
+      data: {
+        type: type || existingLog.type,
+        content: content !== undefined ? content : existingLog.content,
+        metadata: metadata ? { ...existingLog.metadata, ...metadata } : existingLog.metadata
+      }
+    });
+
+    res.json({ ok: true, log: updatedLog });
+  } catch (error) {
+    console.error('[ACTIVITIES] Update Activity Error:', error);
+    res.status(500).json({ ok: false, message: 'Failed to update activity.' });
+  }
+}
+
 module.exports = {
   getActivities,
   createActivity,
+  updateActivity,
 };

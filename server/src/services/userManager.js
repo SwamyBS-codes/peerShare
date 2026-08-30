@@ -29,12 +29,15 @@ function unregisterUser(ws) {
   const id = ws.__dbId;
   const userId = ws.__userId;
 
-  if (id) {
+  if (id && userIdToSocket.get(id) === ws) {
     userIdToSocket.delete(id);
   }
   if (userId) {
-    usernameToSocket.delete(userId.toLowerCase());
-    console.log(`[USER MANAGER] Unregistered user: ${userId}`);
+    const cleanId = userId.toLowerCase();
+    if (usernameToSocket.get(cleanId) === ws) {
+      usernameToSocket.delete(cleanId);
+      console.log(`[USER MANAGER] Unregistered user: ${userId}`);
+    }
   }
 }
 

@@ -24,7 +24,7 @@ function AppContent({ darkMode, setDarkMode, currentUser }) {
 
       <div className={`relative z-10 flex flex-col ${isDashboardOrShare ? 'h-full overflow-hidden' : 'min-h-screen'}`}>
         <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />
-        <main className={`flex-grow flex flex-col pt-20 ${isDashboardOrShare ? 'pb-4 h-[calc(100vh-80px)] overflow-hidden' : 'pb-12'}`}>
+        <main className={`h-full w-full pt-20 ${isDashboardOrShare ? 'pb-4 px-2 sm:px-4 overflow-hidden' : 'pb-12'}`}>
           <Routes>
             {/* Protected Routes */}
             <Route 

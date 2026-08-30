@@ -2,7 +2,7 @@ const express = require('express');
 
 const { registerRequest, registerVerify, login } = require('./controllers/authController');
 const { getFriends, sendFriendRequest, acceptFriendRequest } = require('./controllers/friendController');
-const { getActivities, createActivity } = require('./controllers/activityController');
+const { getActivities, createActivity, updateActivity } = require('./controllers/activityController');
 const { authenticateToken } = require('./middleware/auth');
 
 const router = express.Router();
@@ -42,5 +42,6 @@ router.post('/api/friends/accept', authenticateToken, acceptFriendRequest);
 // --- Activity / Chat Logging Routes ---
 router.get('/api/activities', authenticateToken, getActivities);
 router.post('/api/activities', authenticateToken, createActivity);
+router.patch('/api/activities/:id', authenticateToken, updateActivity);
 
 module.exports = router;

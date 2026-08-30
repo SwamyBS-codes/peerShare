@@ -200,8 +200,10 @@ async function handleConnection(ws, req) {
   // 4. Cleanup on disconnect
   ws.on('close', async () => {
     unregisterUser(ws);
-    // Broadcast offline status update to online friends
-    await notifyFriendsPresence(id, userId, false);
+    // Only broadcast offline status if the user has no active socket
+    if (!getSocketByUsername(userId)) {
+      await notifyFriendsPresence(id, userId, false);
+    }
   });
 }
 

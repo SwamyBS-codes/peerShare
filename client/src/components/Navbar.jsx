@@ -50,7 +50,7 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
   ]
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 w-full glass-panel border-b border-white/10 dark:border-slate-900 shadow-md transition-all duration-300">
+    <header className="fixed top-0 z-50 w-full shrink-0 glass-panel border-b border-white/10 dark:border-slate-900 shadow-md transition-all duration-300">
       <nav className="w-full flex items-center justify-between px-8 py-3.5">
         <NavLink to="/" className="flex items-center gap-3 text-xl font-bold tracking-tight text-slate-900 dark:text-white">
           <BrandMark className="h-8 w-8" />
