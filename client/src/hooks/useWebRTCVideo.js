@@ -208,16 +208,12 @@ export function useWebRTCVideo({
       toast.error('Could not access camera/microphone');
       cleanupCall();
 
-      if (wsRef.current) {
-        toast.error('Could not decline call');
-      } finally {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: 'invite-response',
-            targetUserId,
-            accepted: false
-          }));
-        }
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'invite-response',
+          targetUserId,
+          accepted: false
+        }));
       }
     }
   };
