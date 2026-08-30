@@ -176,7 +176,8 @@ export function useWebRTCVideo({
           }));
         }
       } else {
-        toast.error('Failed to send call invite');
+        console.error('API rejected call invite:', data.message);
+        toast.error(`Error: ${data.message || 'Failed to send call invite'}`);
         cleanupCall();
       }
     } catch (err) {
