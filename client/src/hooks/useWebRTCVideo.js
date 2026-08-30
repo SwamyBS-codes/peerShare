@@ -47,7 +47,7 @@ export function useWebRTCVideo({
 
   const endCall = () => {
     const currentActiveCall = activeCallRef.current || activeCall;
-    if (currentActiveCall && wsRef.current) {
+    if (currentActiveCall && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'signal',
         targetUserId: currentActiveCall.friendUserId.toLowerCase(),
@@ -131,6 +131,11 @@ export function useWebRTCVideo({
       return;
     }
 
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      toast.error('Connecting to chat server, please wait...');
+      return;
+    }
+
     toast.loading('Calling friend...', { id: 'call' });
     setActiveCall({ friendUserId: friend.friendUserId.toLowerCase(), role: 'caller' });
     callStartTimeRef.current = null;
@@ -162,7 +167,7 @@ export function useWebRTCVideo({
         callInviteIdRef.current = data.log.id;
         setMessages(prev => [...prev, data.log]);
         
-        if (wsRef.current) {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'invite',
             targetUserId: friend.friendUserId.toLowerCase(),
@@ -190,12 +195,12 @@ export function useWebRTCVideo({
       setLocalStream(stream);
       localStreamRef.current = stream;
 
-      // Send acceptance ONLY after camera is ready to prevent SDP race conditions
-      if (wsRef.current) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'invite-response',
           targetUserId,
-          accepted: true
+          accepted: true,
+          messageId: receiverInviteIdRef.current
         }));
       }
     } catch (err) {
@@ -204,12 +209,15 @@ export function useWebRTCVideo({
       cleanupCall();
 
       if (wsRef.current) {
-        // Send rejection if camera fails to open
-        wsRef.current.send(JSON.stringify({
-          type: 'invite-response',
-          targetUserId,
-          accepted: false
-        }));
+        toast.error('Could not decline call');
+      } finally {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            type: 'invite-response',
+            targetUserId,
+            accepted: false
+          }));
+        }
       }
     }
   };
@@ -240,7 +248,7 @@ export function useWebRTCVideo({
       };
 
       pc.onicecandidate = (event) => {
-        if (event.candidate && wsRef.current) {
+        if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
             type: 'signal',
             targetUserId: targetUserId.toLowerCase(),
@@ -258,7 +266,7 @@ export function useWebRTCVideo({
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      if (wsRef.current) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'signal',
           targetUserId: targetUserId.toLowerCase(),
@@ -309,7 +317,7 @@ export function useWebRTCVideo({
           };
 
           newPc.onicecandidate = (event) => {
-            if (event.candidate && wsRef.current) {
+            if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({
                 type: 'signal',
                 targetUserId: fromUserId.toLowerCase(),
@@ -340,7 +348,7 @@ export function useWebRTCVideo({
           const answer = await newPc.createAnswer();
           await newPc.setLocalDescription(answer);
 
-          if (wsRef.current) {
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({
               type: 'signal',
               targetUserId: fromUserId.toLowerCase(),
