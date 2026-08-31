@@ -5,7 +5,11 @@ const fs = require('fs');
 const routes = require('./routes');
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: process.env.CLIENT_URL || ['http://localhost:5173', 'https://peer-share-silk.vercel.app'],
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Load application routers
