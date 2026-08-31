@@ -158,26 +158,7 @@ export default function Home() {
           Transfer multi-gigabyte files directly between device browsers using raw WebRTC channels. Secure, direct-to-disk streaming, and zero permanent cloud storage logs.
         </p>
         
-        <div className="flex flex-wrap gap-4 pt-2">
-          <Link
-            to="/send"
-            className="hover-lift flex items-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-650 to-pink-600 px-8 py-4 text-sm font-extrabold uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition duration-300"
-          >
-            <span>Send Files</span>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </Link>
-          <Link
-            to="/receive"
-            className="hover-lift flex items-center gap-2 rounded-2xl border border-slate-250 bg-white/70 dark:border-slate-800 dark:bg-slate-900/60 px-8 py-4 text-sm font-extrabold uppercase tracking-wider text-slate-700 dark:text-slate-200 hover:border-slate-350 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition duration-300 backdrop-blur-sm shadow-sm"
-          >
-            <span>Receive Files</span>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-            </svg>
-          </Link>
-        </div>
+
 
         {/* Glassmorphic Stats mini-cards */}
         <div className="grid grid-cols-3 gap-4 pt-8 border-t border-slate-200/40 dark:border-slate-800/30">
