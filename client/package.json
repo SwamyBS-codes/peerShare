@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.27",
+    "framer-motion": "^13.2.0",
     "html5-qrcode": "^2.3.8",
     "postcss": "^8.5.8",
     "qrcode": "^1.5.4",

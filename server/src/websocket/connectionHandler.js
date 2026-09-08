@@ -164,15 +164,26 @@ async function handleConnection(ws, req) {
 
       // client responds to an invitation
       case 'invite-response': {
-        const { targetUserId, accepted } = message;
+        const { targetUserId, accepted, messageId } = message;
         const targetWs = getSocketByUsername(targetUserId);
 
         if (targetWs) {
           sendJSON(targetWs, {
             type: 'invite-response',
             senderUserId: userId,
-            accepted
+            accepted,
+            messageId
           });
+        }
+        break;
+      }
+
+      // The caller gave up before the invitation was answered. Remove it from the peer's queue.
+      case 'invite-cancelled': {
+        const { targetUserId, messageId } = message;
+        const targetWs = getSocketByUsername(targetUserId);
+        if (targetWs) {
+          sendJSON(targetWs, { type: 'invite-cancelled', senderUserId: userId, messageId });
         }
         break;
       }

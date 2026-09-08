@@ -199,8 +199,82 @@ async function login(req, res) {
   }
 }
 
+async function forgotPasswordRequest(req, res) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ ok: false, message: 'Email is required.' });
+    }
+
+    const emailTrimmed = email.trim().toLowerCase();
+    const user = await prisma.user.findUnique({ where: { email: emailTrimmed } });
+    if (!user) {
+      return res.status(400).json({ ok: false, message: 'No account found for that email address.' });
+    }
+
+    const result = await otpService.send(emailTrimmed);
+    console.log(`[AUTH] Sent password reset code to ${emailTrimmed}. Code: ${result.otp}`);
+
+    res.json({
+      ok: true,
+      message: 'Reset code sent to your email.',
+      otp: (!process.env.GMAIL_EMAIL || !process.env.GMAIL_APP_PASSWORD) ? result.otp : undefined
+    });
+  } catch (error) {
+    console.error('[AUTH] Forgot Password Request Error:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Unable to send reset code.'
+    });
+  }
+}
+
+async function resetPassword(req, res) {
+  try {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+      return res.status(400).json({ ok: false, message: 'Email, code, and a new password are required.' });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ ok: false, message: 'Password must be at least 8 characters long.' });
+    }
+
+    const emailTrimmed = email.trim().toLowerCase();
+    const isValid = await otpService.verify(emailTrimmed, otp);
+    if (!isValid) {
+      return res.status(400).json({ ok: false, message: 'Invalid or expired reset code.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: emailTrimmed } });
+    if (!user) {
+      return res.status(400).json({ ok: false, message: 'Account not found.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash }
+    });
+
+    res.json({
+      ok: true,
+      message: 'Password updated successfully.'
+    });
+  } catch (error) {
+    console.error('[AUTH] Reset Password Error:', error);
+    res.status(500).json({
+      ok: false,
+      message: error.message || 'Unable to reset password.'
+    });
+  }
+}
+
 module.exports = {
   registerRequest,
   registerVerify,
   login,
+  forgotPasswordRequest,
+  resetPassword,
 };

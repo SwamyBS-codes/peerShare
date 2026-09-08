@@ -19,7 +19,8 @@ export function useChatWebSocket({
   currentFileRef,
   setTransferState,
   setUnreadCounts,
-  activeCallRef
+  activeCallRef,
+  clearInviteExpiry
 }) {
   const [incomingInvite, setIncomingInvite] = useState(null);
 
@@ -37,8 +38,11 @@ export function useChatWebSocket({
     setTransferState,
     setFriends,
     setMessages,
+    setUnreadCounts,
     toast,
-    currentUser
+    currentUser,
+    activeCallRef,
+    clearInviteExpiry
   });
 
   useEffect(() => {
@@ -55,10 +59,17 @@ export function useChatWebSocket({
       setTransferState,
       setFriends,
       setMessages,
+      setUnreadCounts,
       toast,
-      currentUser
+      currentUser,
+      activeCallRef,
+      clearInviteExpiry
     };
   });
+
+  useEffect(() => {
+    // No audio autoplay for calls; keep the app quiet unless the user explicitly interacts.
+  }, []);
 
   useEffect(() => {
     let wsUrl = '';
@@ -86,6 +97,17 @@ export function useChatWebSocket({
     let isMounted = true;
     let reconnectTimeout = null;
     let reconnectAttempts = 0;
+    let presenceInterval = null;
+
+    const requestPresence = () => {
+      if (!socket || socket.readyState !== WebSocket.OPEN) return;
+      const friendNames = friendsRef.current
+        .filter((friend) => friend.status === 'accepted')
+        .map((friend) => friend.friendUserId);
+      if (friendNames.length > 0) {
+        socket.send(JSON.stringify({ type: 'check-status', friends: friendNames }));
+      }
+    };
 
     const connectWS = () => {
       if (!isMounted) return;
@@ -95,16 +117,11 @@ export function useChatWebSocket({
       socket.onopen = () => {
         console.log('[WS] Connected to signaling server.');
         reconnectAttempts = 0; 
-        const friendNames = friendsRef.current
-          .filter(f => f.status === 'accepted')
-          .map(f => f.friendUserId);
-        
-        if (friendNames.length > 0) {
-          socket.send(JSON.stringify({
-            type: 'check-status',
-            friends: friendNames
-          }));
-        }
+        requestPresence();
+        // Presence broadcasts can be missed while the friend list is still loading.
+        // Polling keeps both clients in sync after reconnects and browser wake-ups.
+        if (presenceInterval) clearInterval(presenceInterval);
+        presenceInterval = setInterval(requestPresence, 10_000);
       };
 
       socket.onmessage = async (event) => {
@@ -195,6 +212,7 @@ export function useChatWebSocket({
             }
 
             if (isAccepted) {
+              h.clearInviteExpiry?.();
               h.toast.success(`@${msg.senderUserId.toLowerCase()} accepted! Connecting...`);
               if (h.currentFileRef.current) {
                 h.initiateFileWebRTCConnection(msg.senderUserId.toLowerCase(), true);
@@ -206,6 +224,13 @@ export function useChatWebSocket({
               h.cleanupCall();
               h.setTransferState(null);
               h.currentFileRef.current = null;
+            }
+            break;
+          }
+
+          case 'invite-cancelled': {
+            if (msg.messageId) {
+              h.setMessages((prev) => prev.filter((message) => message.id !== msg.messageId));
             }
             break;
           }
@@ -252,6 +277,10 @@ export function useChatWebSocket({
 
       socket.onclose = () => {
         console.warn('[WS] Connection closed.');
+        if (presenceInterval) {
+          clearInterval(presenceInterval);
+          presenceInterval = null;
+        }
         if (isMounted) {
            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000);
            reconnectAttempts++;
@@ -264,7 +293,6 @@ export function useChatWebSocket({
 
     return () => {
       isMounted = false;
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
       if (hRef.current.cleanupCall) {
          hRef.current.cleanupCall();

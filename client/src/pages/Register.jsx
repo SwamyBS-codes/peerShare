@@ -1,228 +1,388 @@
-import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
 import BrandMark from '../components/BrandMark'
+import { authService } from '../services/authService'
+
+const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent']
+const strengthColors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 'bg-emerald-400']
+
+function getPasswordStrength(password) {
+  if (!password) return { score: 0, label: 'No password' }
+
+  let score = 0
+  if (password.length >= 8) score += 1
+  if (/[A-Z]/.test(password)) score += 1
+  if (/[0-9]/.test(password)) score += 1
+  if (/[^A-Za-z0-9]/.test(password)) score += 1
+
+  const normalized = Math.min(score, 4)
+  return { score: normalized, label: strengthLabels[normalized] }
+}
 
 export default function Register() {
-  // Step 1 variables
-  const [email, setEmail] = useState('')
-  const [userId, setUserId] = useState('')
-  const [password, setPassword] = useState('')
-
-  // Step 2 variables
+  const [form, setForm] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
   const [otp, setOtp] = useState('')
-  const [step, setStep] = useState(1) // 1 = Details, 2 = OTP Verification
+  const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [debugOtp, setDebugOtp] = useState('') // Helper for local dev if SMTP is unset
-  const [cooldown, setCooldown] = useState(0) // resend cooldown timer
-
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [debugOtp, setDebugOtp] = useState('')
+  const [cooldown, setCooldown] = useState(0)
   const navigate = useNavigate()
 
-  // Cooldown countdown effect
   useEffect(() => {
-    if (cooldown <= 0) return
-    const timer = setTimeout(() => setCooldown(cooldown - 1), 1000)
+    if (!cooldown) return
+
+    const timer = setTimeout(() => setCooldown((value) => value - 1), 1000)
     return () => clearTimeout(timer)
   }, [cooldown])
 
-  const handleRequestOtp = async (e) => {
-    e.preventDefault()
-    if (!email || !userId || !password) {
-      toast.error('All fields are required.')
+  const passwordStrength = getPasswordStrength(form.password)
+  const passwordsMatch = form.confirmPassword.length > 0 && form.password === form.confirmPassword
+  const hasPasswordMismatch = form.confirmPassword.length > 0 && form.password !== form.confirmPassword
+
+  const handleFieldChange = (event) => {
+    const { name, value } = event.target
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const requestCode = async (event) => {
+    event?.preventDefault()
+
+    if (!form.fullName || !form.username || !form.email || !form.password || !form.confirmPassword) {
+      toast.error('Please complete all fields.')
+      return
+    }
+
+    if (form.password !== form.confirmPassword) {
+      toast.error('Passwords do not match.')
+      return
+    }
+
+    if (form.password.length < 8) {
+      toast.error('Password must be at least 8 characters long.')
       return
     }
 
     setLoading(true)
     try {
-      const data = await authService.requestRegisterOtp(email, userId, password)
-      toast.success('Verification code dispatched!')
-
-      // If server returned OTP (debug mode fallback)
-      if (data.otp) {
-        setDebugOtp(data.otp)
-      }
-
+      const data = await authService.requestRegisterOtp(form.email, form.username, form.password)
+      if (data.otp) setDebugOtp(data.otp)
       setStep(2)
-      setCooldown(60) // 1-minute resend cooldown
-    } catch (err) {
-      toast.error(err.message || 'Signup request failed.')
+      setCooldown(60)
+      toast.success('Verification code sent!')
+    } catch (error) {
+      toast.error(error.message || 'Signup request failed.')
     } finally {
       setLoading(false)
     }
   }
 
-  const handleVerifyAndRegister = async (e) => {
-    e.preventDefault()
+  const verify = async (event) => {
+    event.preventDefault()
+
     if (!otp) {
-      toast.error('Please enter the verification code.')
+      toast.error('Enter the verification code.')
       return
     }
 
     setLoading(true)
     try {
-      await authService.verifyOtpAndRegister(email, userId, password, otp)
-      toast.success('Account created successfully!')
-      // Dispatch custom event to notify App.jsx state updates
+      await authService.verifyOtpAndRegister(form.email, form.username, form.password, otp)
       window.dispatchEvent(new Event('auth-change'))
+      toast.success('Account created!')
       navigate('/')
-    } catch (err) {
-      toast.error(err.message || 'Verification failed. Try again.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleResendOtp = async () => {
-    if (cooldown > 0) return
-    setLoading(true)
-    try {
-      const data = await authService.requestRegisterOtp(email, userId, password)
-      toast.success('New verification code sent!')
-      if (data.otp) {
-        setDebugOtp(data.otp)
-      }
-      setCooldown(60)
-    } catch (err) {
-      toast.error(err.message || 'Resend failed.')
+    } catch (error) {
+      toast.error(error.message || 'Verification failed. Try again.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="relative w-full max-w-md px-6 py-12 mx-auto my-auto">
-      {/* Decorative Blur Spheres */}
-      <div className="absolute top-0 left-[-20%] w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-[-20%] w-64 h-64 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="relative z-10 p-[1.5px] rounded-[28px] bg-gradient-to-tr from-indigo-500/30 via-purple-500/25 to-pink-500/30 shadow-2xl">
-        <div className="p-8 rounded-[27px] bg-slate-900/80 dark:bg-slate-950/80 backdrop-blur-xl flex flex-col items-center">
-
-          {/* Logo / Branding */}
-          <div className="flex items-center gap-2.5 mb-6">
-            <BrandMark className="h-7 w-7 text-indigo-500" />
-            <span className="text-xl font-black text-slate-800 dark:text-white uppercase tracking-[0.2em]">PeerShare</span>
+    <section className="min-h-screen bg-[#0B1220] px-4 py-8 text-slate-50 sm:px-6 lg:px-8">
+      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl overflow-hidden rounded-[32px] border border-white/10 bg-[#0F172A]/90 shadow-[0_40px_80px_rgba(15,23,42,0.8)] backdrop-blur-sm lg:grid-cols-[1.08fr_0.92fr]">
+        <motion.aside
+          className="relative hidden overflow-hidden bg-[#0B1220] p-8 lg:flex lg:flex-col lg:justify-between"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(79,70,229,0.24),transparent_28%),radial-gradient(circle_at_80%_18%,rgba(99,102,241,0.18),transparent_35%),radial-gradient(circle_at_70%_100%,rgba(34,197,94,0.14),transparent_30%)]" />
+          <div className="relative z-10 flex items-center gap-3">
+            <BrandMark className="h-10 w-10" />
+            <span className="font-display text-2xl font-bold text-white">PeerShare</span>
           </div>
 
-          <h2 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight mb-2">Create Account</h2>
-          <p className="text-xs text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-widest mb-8">
-            {step === 1 ? 'Join the secure sharing hub' : 'Verify your email address'}
-          </p>
+          <div className="relative z-10">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-indigo-300">Built for trust</p>
+            <h1 className="max-w-md font-display text-5xl font-bold leading-[1.04] tracking-[-0.06em] text-white">
+              Start a secure connection.
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-slate-300">
+              Create your space, meet peers instantly, and share files with a protected direct channel.
+            </p>
+          </div>
 
-          {step === 1 ? (
-            // --- STEP 1: Details ---
-            <form onSubmit={handleRequestOtp} className="w-full space-y-5">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200/50 bg-white/40 dark:border-slate-800/40 dark:bg-slate-900/60 text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition duration-300 dark:text-slate-100"
-                />
+          <div className="relative z-10 space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-indigo-300">
+                <span>Connection status</span>
+                <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-[10px] font-medium text-emerald-300">Live</span>
               </div>
+              <div className="mt-3 text-sm text-slate-100">Direct Connection Active</div>
+              <div className="mt-1 text-xs text-slate-400">Latency: 18ms</div>
+              <div className="mt-1 text-xs text-emerald-300">Secure Channel Established</div>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Public User ID</label>
-                <input
-                  type="text"
-                  required
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  placeholder="e.g. john_doe"
-                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200/50 bg-white/40 dark:border-slate-800/40 dark:bg-slate-900/60 text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition duration-300 dark:text-slate-100"
-                />
+            <div className="rounded-2xl border border-white/10 bg-slate-950/60 p-4 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <div className="text-xs uppercase tracking-[0.2em] text-indigo-300">Message preview</div>
+                <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(34,197,94,0.8)]" />
               </div>
+              <div className="mt-3 text-sm text-slate-100">Hey, can you send the design?</div>
+              <div className="mt-2 text-xs text-slate-400">Uploading file...</div>
+            </div>
+          </div>
+        </motion.aside>
 
+        <motion.main
+          className="flex items-center justify-center bg-[#121A2B] p-6 sm:p-8 lg:p-10"
+          initial={{ opacity: 0, x: 18 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
+        >
+          <div className="w-full max-w-lg">
+            <div className="mb-8 flex items-center gap-3 lg:hidden">
+              <BrandMark className="h-9 w-9" />
+              <div className="font-display text-xl font-bold text-white">PeerShare</div>
+            </div>
+
+            <div className="mb-7 flex items-center justify-between gap-3">
               <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2">Password</label>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3.5 rounded-2xl border border-slate-200/50 bg-white/40 dark:border-slate-800/40 dark:bg-slate-900/60 text-sm font-semibold focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition duration-300 dark:text-slate-100"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full mt-2 py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-650 to-pink-600 text-sm font-extrabold uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition duration-300 active:scale-[0.98] disabled:opacity-50"
-              >
-                {loading ? 'Sending Code...' : 'Request Code'}
-              </button>
-            </form>
-          ) : (
-            // --- STEP 2: OTP Verification ---
-            <form onSubmit={handleVerifyAndRegister} className="w-full space-y-5">
-              <div className="text-center mb-2">
-                <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-                  A verification code has been dispatched to <strong className="text-slate-350">{email}</strong>. Please enter the 6-digit code below.
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-300">
+                  {step === 1 ? 'Create account' : 'Verify email'}
                 </p>
+                <h2 className="mt-3 font-display text-3xl font-bold tracking-[-0.05em] text-white">
+                  {step === 1 ? 'Welcome aboard' : 'Check your inbox'}
+                </h2>
               </div>
+              <div className="rounded-full border border-indigo-400/30 bg-indigo-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-200">
+                Step {step} / 2
+              </div>
+            </div>
 
-              {debugOtp && (
-                <div className="p-3.5 rounded-2xl bg-indigo-550/10 border border-indigo-500/25 text-center text-xs font-bold text-indigo-400">
-                  🔧 Dev Debug Mode Code: <strong className="text-base select-all">{debugOtp}</strong>
+            {step === 1 ? (
+              <form onSubmit={requestCode} className="space-y-4.5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label htmlFor="fullName" className="mb-2 block text-sm font-medium text-slate-200">
+                      Full Name
+                    </label>
+                    <input
+                      id="fullName"
+                      name="fullName"
+                      type="text"
+                      value={form.fullName}
+                      onChange={handleFieldChange}
+                      placeholder="Alex Morgan"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                      required
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label htmlFor="username" className="mb-2 block text-sm font-medium text-slate-200">
+                      Username
+                    </label>
+                    <input
+                      id="username"
+                      name="username"
+                      type="text"
+                      value={form.username}
+                      onChange={handleFieldChange}
+                      placeholder="alex_peer"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                      required
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-200">
+                      Email
+                    </label>
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={form.email}
+                      onChange={handleFieldChange}
+                      placeholder="you@example.com"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                      required
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label htmlFor="password" className="mb-2 block text-sm font-medium text-slate-200">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        name="password"
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.password}
+                        onChange={handleFieldChange}
+                        placeholder="Create a secure password"
+                        className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3.5 pr-12 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword((value) => !value)}
+                        className="absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400 transition hover:text-slate-200"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2 pb-2">
+                    <label htmlFor="confirmPassword" className="mb-2 block text-sm font-medium text-slate-200">
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={form.confirmPassword}
+                        onChange={handleFieldChange}
+                        placeholder="Re-enter your password"
+                        className={`w-full rounded-2xl border bg-slate-900/70 px-4 py-3.5 pr-12 text-sm text-white placeholder:text-slate-500 outline-none transition focus:ring-4 ${
+                          hasPasswordMismatch
+                            ? 'border-rose-500/60 focus:border-rose-500 focus:ring-rose-500/20'
+                            : passwordsMatch
+                              ? 'border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/20'
+                              : 'border-white/10 focus:border-indigo-500 focus:ring-indigo-500/15'
+                        }`}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword((value) => !value)}
+                        className="absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400 transition hover:text-slate-200"
+                        aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showConfirmPassword ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    {form.confirmPassword.length > 0 && (
+                      <div className="mt-2 text-xs text-slate-300">
+                        {hasPasswordMismatch ? (
+                          <span className="text-rose-300">Passwords do not match.</span>
+                        ) : passwordsMatch ? (
+                          <span className="text-emerald-300">Passwords match.</span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 text-center">Verification Code</label>
-                <input
-                  type="text"
-                  maxLength={6}
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="_ _ _ _ _ _"
-                  className="w-full px-4 py-3.5 text-center text-2xl tracking-[0.4em] font-black rounded-2xl border border-slate-200/50 bg-white/40 dark:border-slate-800/40 dark:bg-slate-900/60 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition duration-300 dark:text-slate-100"
-                />
-              </div>
+                <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-3">
+                  <div className="mb-2 flex items-center justify-between text-xs text-slate-300">
+                    <span>Password strength</span>
+                    <span className="font-medium text-indigo-200">{passwordStrength.label}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    {[0, 1, 2, 3, 4].map((index) => (
+                      <div
+                        key={index}
+                        className={`h-2 flex-1 rounded-full transition-all ${
+                          index <= passwordStrength.score ? strengthColors[passwordStrength.score] : 'bg-slate-700'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-4 rounded-2xl bg-gradient-to-r from-indigo-600 via-purple-650 to-pink-600 text-sm font-extrabold uppercase tracking-wider text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 transition duration-300 active:scale-[0.98] disabled:opacity-50"
-              >
-                {loading ? 'Creating Account...' : 'Verify & Register'}
-              </button>
+                <div className="pt-2">
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    type="submit"
+                    disabled={loading}
+                    className="w-full rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-500 to-violet-500 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.35)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {loading ? 'Creating account...' : 'Create Account'}
+                  </motion.button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={verify} className="space-y-5">
+                {debugOtp && (
+                  <div className="rounded-2xl border border-indigo-400/30 bg-indigo-500/10 px-3 py-2 text-xs text-indigo-200">
+                    Debug OTP: <span className="font-bold">{debugOtp}</span>
+                  </div>
+                )}
 
-              <div className="flex justify-between items-center text-xs font-semibold px-1">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="text-slate-500 hover:text-slate-400 font-bold"
-                >
-                  ← Change Details
-                </button>
+                <div>
+                  <label htmlFor="otp" className="mb-2 block text-sm font-medium text-slate-200">
+                    Verification code
+                  </label>
+                  <input
+                    id="otp"
+                    type="text"
+                    value={otp}
+                    onChange={(event) => setOtp(event.target.value)}
+                    placeholder="Enter 6-digit code"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-900/70 px-4 py-3.5 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+                    required
+                  />
+                </div>
 
-                <button
-                  type="button"
-                  disabled={cooldown > 0 || loading}
-                  onClick={handleResendOtp}
-                  className={`font-bold ${cooldown > 0 ? 'text-slate-500 cursor-not-allowed' : 'text-indigo-500 hover:text-indigo-400'}`}
-                >
-                  {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
-                </button>
-              </div>
-            </form>
-          )}
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={requestCode}
+                    disabled={cooldown > 0 || loading}
+                    className="flex-1 rounded-2xl border border-white/10 bg-slate-900/60 px-4 py-3.5 text-sm font-medium text-slate-200 transition hover:border-indigo-400/50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
+                  </button>
 
-          <div className="mt-8 text-xs text-slate-400 dark:text-slate-500 font-semibold">
-            Already have an account?{' '}
-            <Link to="/login" className="text-indigo-500 hover:text-indigo-400 font-bold underline ml-1">
-              Sign In
-            </Link>
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-500 to-violet-500 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.35)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                  >
+                    {loading ? 'Verifying...' : 'Verify'}
+                  </motion.button>
+                </div>
+              </form>
+            )}
+
+            <p className="mt-8 text-center text-sm text-slate-400">
+              Already have an account?{' '}
+              <Link to="/login" className="font-semibold text-indigo-300 transition hover:text-indigo-200">
+                Sign in
+              </Link>
+            </p>
           </div>
-
-        </div>
+        </motion.main>
       </div>
-    </div>
+    </section>
   )
 }

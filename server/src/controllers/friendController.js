@@ -9,7 +9,8 @@ async function getFriends(req, res) {
 
     const friendships = await prisma.friendship.findMany({
       where: {
-        OR: [
+        OR: 
+        [
           { userId1: myId },
           { userId2: myId }
         ]

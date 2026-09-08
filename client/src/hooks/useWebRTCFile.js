@@ -429,7 +429,7 @@ export function useWebRTCFile({
         const downloadUrl = URL.createObjectURL(blob);
         const capturedFileName = transferFileNameRef.current;
         const capturedFileSize = transferFileSizeRef.current;
-
+            
         setMessages((prev) =>
           prev.map((m) =>
             m.id === receiverInviteIdRef.current

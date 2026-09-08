@@ -14,6 +14,7 @@ export function useWebRTCVideo({
   const [remoteStream, setRemoteStream] = useState(null);
   const [micMuted, setMicMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
+  const [speakerMuted, setSpeakerMuted] = useState(false);
 
   const activeCallRef = useRef(null);
   const pcRef = useRef(null);
@@ -21,6 +22,14 @@ export function useWebRTCVideo({
   const callStartTimeRef = useRef(null);
   const videoPendingCandidatesRef = useRef([]);
   const callInviteIdRef = useRef(null);
+  const inviteExpiryRef = useRef(null);
+
+  const clearInviteExpiry = () => {
+    if (inviteExpiryRef.current) {
+      clearTimeout(inviteExpiryRef.current);
+      inviteExpiryRef.current = null;
+    }
+  };
 
   // Keep ref in sync for synchronous access in WS handlers
   useEffect(() => {
@@ -45,6 +54,8 @@ export function useWebRTCVideo({
     }
   };
 
+  const toggleSpeaker = () => setSpeakerMuted((muted) => !muted);
+
   const endCall = () => {
     const currentActiveCall = activeCallRef.current || activeCall;
     if (currentActiveCall && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -60,12 +71,17 @@ export function useWebRTCVideo({
 
   const cleanupCall = () => {
     toast.dismiss('call');
+    clearInviteExpiry();
+
+    const inviteIdToClear = receiverInviteIdRef?.current || callInviteIdRef.current;
+    if (inviteIdToClear) {
+      setMessages(prev => prev.filter((message) => !(message.type === 'call-invite' && message.id === inviteIdToClear)));
+    }
 
     // Log call duration
     const currentActiveCall = activeCallRef.current || activeCall;
     if (currentActiveCall && selectedFriendRef.current) {
       const isCaller = currentActiveCall.role === 'caller';
-      const friendId = selectedFriendRef.current.friendId;
       let content = '';
       let metadata = { status: 'missed', duration: 0 };
 
@@ -120,14 +136,16 @@ export function useWebRTCVideo({
     setActiveCall(null);
     setMicMuted(false);
     setCamOff(false);
+    setSpeakerMuted(false);
     callStartTimeRef.current = null;
+    callInviteIdRef.current = null;
     videoPendingCandidatesRef.current = [];
   };
 
   const sendCallInvite = async (inviteMsg = 'Incoming Video Call') => {
     const friend = selectedFriendRef.current;
-    if (!friend || !friend.isOnline) {
-      toast.error('Friend is offline.');
+    if (!friend) {
+      toast.error('Select a contact before calling.');
       return;
     }
 
@@ -175,6 +193,29 @@ export function useWebRTCVideo({
             inviteMessage: JSON.stringify(data.log)
           }));
         }
+
+        // Calls are transient. If there is no answer, remove this invitation from both queues.
+        inviteExpiryRef.current = setTimeout(async () => {
+          const expiredInviteId = callInviteIdRef.current;
+          if (!expiredInviteId) return;
+
+          callInviteIdRef.current = null;
+          setMessages((prev) => prev.filter((message) => message.id !== expiredInviteId));
+          try {
+            await authService.fetchAuth(`/api/activities/${expiredInviteId}`, { method: 'DELETE' });
+          } catch (error) {
+            console.error('Failed to remove expired call invite:', error);
+          }
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'invite-cancelled',
+              targetUserId: friend.friendUserId.toLowerCase(),
+              messageId: expiredInviteId
+            }));
+          }
+          cleanupCall();
+          toast('No answer — call request removed.', { icon: '⌛' });
+        }, 45_000);
       } else {
         console.error('API rejected call invite:', data.message);
         toast.error(`Error: ${data.message || 'Failed to send call invite'}`);
@@ -188,6 +229,7 @@ export function useWebRTCVideo({
   };
 
   const answerCall = async (targetUserId) => {
+    clearInviteExpiry();
     setActiveCall({ friendUserId: targetUserId, role: 'receiver' });
     callStartTimeRef.current = null;
 
@@ -387,14 +429,17 @@ export function useWebRTCVideo({
     remoteStream,
     micMuted,
     camOff,
+    speakerMuted,
     toggleMic,
     toggleCam,
+    toggleSpeaker,
     endCall,
     answerCall,
     sendCallInvite,
     initiateWebRTCCall,
     handleVideoSignaling,
     cleanupCall,
+    clearInviteExpiry,
     activeCallRef
   };
 }

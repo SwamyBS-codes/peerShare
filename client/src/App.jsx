@@ -12,47 +12,45 @@ import { authService } from './services/authService'
 
 function AppContent({ darkMode, setDarkMode, currentUser }) {
   const location = useLocation()
-  // Hide footer on dashboard and file share pages to enable full-screen views
+  const isAuthRoute = ['/login', '/register'].includes(location.pathname)
   const isDashboardOrShare = ['/'].includes(location.pathname)
 
   return (
-    <div className={`relative ${isDashboardOrShare ? 'h-screen overflow-hidden' : 'min-h-screen'} bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100 flex flex-col justify-between`}>
-      
-      {/* Animated background highlights */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-400/10 dark:bg-indigo-500/5 blur-[120px] pointer-events-none float-slow" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-cyan-400/10 dark:bg-cyan-500/5 blur-[150px] pointer-events-none float-slower" />
+    <div className={`app-shell relative ${isDashboardOrShare ? 'h-screen overflow-hidden' : 'min-h-screen'} text-slate-900 transition-colors duration-300 dark:text-slate-100 flex flex-col justify-between`}>
+      {!isAuthRoute && (
+        <>
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-400/10 dark:bg-indigo-500/5 blur-[120px] pointer-events-none float-slow" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-cyan-400/10 dark:bg-cyan-500/5 blur-[150px] pointer-events-none float-slower" />
+        </>
+      )}
 
       <div className={`relative z-10 flex flex-col ${isDashboardOrShare ? 'h-full overflow-hidden' : 'min-h-screen'}`}>
-        <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />
-        <main className={`h-full w-full pt-20 ${isDashboardOrShare ? 'pb-4 px-2 sm:px-4 overflow-hidden' : 'pb-12'}`}>
+        {!isAuthRoute && <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />}
+        <main className={`${isAuthRoute ? 'h-full w-full' : `h-full w-full pt-[76px] ${isDashboardOrShare ? 'pb-3 px-2 sm:px-4 overflow-hidden' : 'pb-12'}`}`}>
           <Routes>
-            {/* Protected Routes */}
-            <Route 
-              path="/" 
-              element={currentUser ? <ChatHub /> : <Navigate to="/login" replace />} 
+            <Route
+              path="/"
+              element={currentUser ? <ChatHub darkMode={darkMode} /> : <Navigate to="/login" replace />}
             />
 
-            {/* Guest / Public Routes */}
-            <Route 
-              path="/login" 
-              element={!currentUser ? <Login /> : <Navigate to="/" replace />} 
+            <Route
+              path="/login"
+              element={!currentUser ? <Login /> : <Navigate to="/" replace />}
             />
-            <Route 
-              path="/register" 
-              element={!currentUser ? <Register /> : <Navigate to="/" replace />} 
+            <Route
+              path="/register"
+              element={!currentUser ? <Register /> : <Navigate to="/" replace />}
             />
 
-            {/* Static Pages */}
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/about" element={<About />} />
 
-            {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
-        
-        {!isDashboardOrShare && (
-          <footer className="w-full text-center py-6 text-xs text-slate-400 dark:text-slate-500 border-t border-slate-200/40 dark:border-slate-800/30 backdrop-blur-sm">
+
+        {!isAuthRoute && !isDashboardOrShare && (
+          <footer className="w-full border-t border-slate-200/40 py-6 text-center text-xs text-slate-400 backdrop-blur-sm dark:border-slate-800/30 dark:text-slate-500">
             <p>© {new Date().getFullYear()} PeerShare. Built with WebRTC & WebSocket signaling. Secure P2P communication.</p>
           </footer>
         )}

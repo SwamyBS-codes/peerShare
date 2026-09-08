@@ -1,8 +1,8 @@
 const express = require('express');
 
-const { registerRequest, registerVerify, login } = require('./controllers/authController');
+const { registerRequest, registerVerify, login, forgotPasswordRequest, resetPassword } = require('./controllers/authController');
 const { getFriends, sendFriendRequest, acceptFriendRequest } = require('./controllers/friendController');
-const { getActivities, createActivity, updateActivity } = require('./controllers/activityController');
+const { getActivities, createActivity, updateActivity, deleteActivity } = require('./controllers/activityController');
 const { authenticateToken } = require('./middleware/auth');
 
 const router = express.Router();
@@ -22,6 +22,8 @@ router.get('/', (req, res) => {
 router.post('/api/auth/register-request', registerRequest);
 router.post('/api/auth/register-verify', registerVerify);
 router.post('/api/auth/login', login);
+router.post('/api/auth/forgot-password-request', forgotPasswordRequest);
+router.post('/api/auth/reset-password', resetPassword);
 
 // --- User Profile (Self) ---
 router.get('/api/users/me', authenticateToken, (req, res) => {
@@ -43,5 +45,6 @@ router.post('/api/friends/accept', authenticateToken, acceptFriendRequest);
 router.get('/api/activities', authenticateToken, getActivities);
 router.post('/api/activities', authenticateToken, createActivity);
 router.patch('/api/activities/:id', authenticateToken, updateActivity);
+router.delete('/api/activities/:id', authenticateToken, deleteActivity);
 
 module.exports = router;

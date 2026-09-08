@@ -1,129 +1,52 @@
 import React from 'react';
 
-export function VideoCallOverlay({
-  activeCall,
-  localStream,
-  remoteStream,
-  micMuted,
-  camOff,
-  toggleMic,
-  toggleCam,
-  endCall,
-  friendUserId
-}) {
+function ControlButton({ label, title, onClick, active, danger, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={`group flex min-w-[72px] flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center transition duration-200 active:scale-95 ${danger ? 'text-white' : 'text-slate-100'}`}
+    >
+      <span
+        className={`flex h-14 w-14 items-center justify-center rounded-full border text-lg font-bold shadow-lg transition ${danger
+          ? 'border-rose-500/40 bg-rose-500 text-white shadow-rose-500/25 hover:bg-rose-400'
+          : active
+            ? 'border-white/15 bg-white text-slate-950 shadow-white/10 hover:bg-slate-100'
+            : 'border-white/10 bg-white/10 text-white hover:bg-white/15'}`}
+      >
+        {children}
+      </span>
+      <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${danger ? 'text-rose-200' : active ? 'text-slate-200' : 'text-slate-300'}`}>
+        {label}
+      </span>
+    </button>
+  );
+}
+
+export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, toggleMic, toggleCam, toggleSpeaker, endCall }) {
   const localVideoRef = React.useRef(null);
   const remoteVideoRef = React.useRef(null);
-
-  React.useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream]);
-
-  React.useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
-
+  React.useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream]);
+  React.useEffect(() => { if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream; }, [remoteStream]);
   if (!activeCall || (!localStream && !remoteStream)) return null;
+  const connecting = !remoteStream;
 
-  return (
-    <div className="fixed inset-0 bg-slate-950/98 backdrop-blur-xl z-50 flex flex-col justify-between p-6 select-none">
-      
-      {/* Call Header */}
-      <div className="flex justify-between items-center relative z-10">
-        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-900/60 px-4 py-2 rounded-xl border border-slate-800">
-          Direct Peer Link: @{activeCall.friendUserId}
-        </span>
-        <span className="flex items-center gap-2 text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-4 py-2 rounded-xl border border-emerald-500/20">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-          WebRTC P2P Active
-        </span>
-      </div>
-
-      {/* Videos Grid */}
-      <div className="relative flex-grow flex items-center justify-center my-6 rounded-[24px] overflow-hidden bg-slate-900 border border-slate-800 shadow-inner">
-        {remoteStream ? (
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-slate-500 font-bold gap-3">
-            <svg className="animate-spin h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            <span className="text-xs">Connecting remote peer stream...</span>
-          </div>
-        )}
-
-        {/* Local Feed PIP */}
-        {localStream && (
-          <div className="absolute bottom-5 right-5 w-36 sm:w-44 aspect-[4/3] rounded-xl overflow-hidden border border-slate-750 shadow-2xl bg-slate-950">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`w-full h-full object-cover ${camOff ? 'hidden' : ''}`}
-            />
-            {camOff && (
-              <div className="w-full h-full flex items-center justify-center text-[9px] text-slate-550 font-bold uppercase tracking-wider">
-                Camera Disabled
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Call Controls Dock */}
-      <div className="flex justify-center items-center gap-3.5 relative z-10">
-        {/* Mic Toggle Button */}
-        <button
-          onClick={toggleMic}
-          className={`p-3.5 rounded-full border transition active:scale-90 ${
-            micMuted
-              ? 'bg-rose-500/10 border-rose-500/25 text-rose-500 hover:bg-rose-500/20'
-              : 'bg-white/10 border-slate-800 text-slate-100 hover:bg-white/15'
-          }`}
-          title={micMuted ? 'Unmute Mic' : 'Mute Mic'}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4.5 h-4.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" />
-          </svg>
-        </button>
-
-        {/* Camera Toggle Button */}
-        <button
-          onClick={toggleCam}
-          className={`p-3.5 rounded-full border transition active:scale-90 ${
-            camOff
-              ? 'bg-rose-500/10 border-rose-500/25 text-rose-500 hover:bg-rose-500/20'
-              : 'bg-white/10 border-slate-800 text-slate-100 hover:bg-white/15'
-          }`}
-          title={camOff ? 'Enable Camera' : 'Disable Camera'}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4.5 h-4.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z" />
-          </svg>
-        </button>
-
-        {/* End Call Button */}
-        <button
-          onClick={endCall}
-          className="p-3.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-500/25 active:scale-90 transition flex items-center justify-center"
-          title="Hang Up"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4.5 h-4.5">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0 0 20.25 18V6A2.25 2.25 0 0 0 18 3.75H6A2.25 2.25 0 0 0 3.75 6v12A2.25 2.25 0 0 0 6 20.25Z" />
-          </svg>
-        </button>
-      </div>
-
-    </div>
-  );
+  return <div className="fixed inset-0 z-50 flex min-h-[100dvh] flex-col bg-[#090b14] p-3 text-white sm:p-6">
+    <header className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 backdrop-blur-xl sm:px-4">
+      <div className="min-w-0"><p className="truncate text-sm font-bold">@{activeCall.friendUserId}</p><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{connecting ? 'Calling securely…' : 'Encrypted video call'}</p></div>
+      <span className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold ${connecting ? 'bg-amber-400/10 text-amber-300' : 'bg-emerald-400/10 text-emerald-300'}`}><span className={`h-2 w-2 rounded-full ${connecting ? 'animate-pulse bg-amber-300' : 'bg-emerald-300'}`} />{connecting ? 'Connecting' : 'Live'}</span>
+    </header>
+    <main className="relative mx-auto my-3 flex w-full max-w-6xl flex-1 items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-slate-900 shadow-2xl sm:my-5">
+      {remoteStream ? <video ref={remoteVideoRef} autoPlay playsInline muted={speakerMuted} className="h-full w-full object-cover" /> : <div className="flex flex-col items-center gap-4 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full border border-indigo-400/30 bg-indigo-500/15 text-2xl animate-pulse">◌</span><div><p className="font-bold">Waiting for @{activeCall.friendUserId}</p><p className="mt-1 text-xs text-slate-400">They have 45 seconds to answer.</p></div></div>}
+      {localStream && <div className="absolute bottom-3 right-3 aspect-[3/4] w-24 overflow-hidden rounded-2xl border border-white/20 bg-slate-950 shadow-2xl sm:bottom-5 sm:right-5 sm:w-40 sm:aspect-video">{!camOff && <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />}{camOff && <div className="flex h-full items-center justify-center text-center text-[10px] font-bold text-slate-400">Camera<br />off</div>}<span className="absolute bottom-1.5 left-2 rounded bg-black/40 px-1.5 py-0.5 text-[8px] font-bold">You</span></div>}
+    </main>
+    <nav className="mx-auto flex w-full max-w-lg items-center justify-center gap-2 rounded-[26px] border border-white/10 bg-slate-900/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:gap-3">
+      <ControlButton label={micMuted ? 'Unmute' : 'Mute'} title={micMuted ? 'Turn microphone on' : 'Turn microphone off'} onClick={toggleMic} active={!micMuted}>M</ControlButton>
+      <ControlButton label={camOff ? 'Camera' : 'Camera'} title={camOff ? 'Turn camera on' : 'Turn camera off'} onClick={toggleCam} active={!camOff}>{camOff ? 'C' : 'C'}</ControlButton>
+      <ControlButton label={speakerMuted ? 'Audio' : 'Audio'} title={speakerMuted ? 'Turn speaker on' : 'Turn speaker off'} onClick={toggleSpeaker} active={!speakerMuted}>S</ControlButton>
+      <ControlButton label="End" title="End call" onClick={endCall} danger>✕</ControlButton>
+    </nav>
+  </div>;
 }

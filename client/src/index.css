@@ -16,8 +16,22 @@
   }
 
   body {
-    @apply m-0 min-h-screen antialiased overflow-x-hidden;
+    @apply m-0 min-h-screen antialiased overflow-x-hidden bg-[#f7f8fc] text-slate-900;
   }
+
+  .dark body { @apply bg-[#090b14] text-slate-100; }
+}
+
+@layer components {
+  .app-shell {
+    background-image: radial-gradient(circle at 8% 5%, rgba(99, 102, 241, .13), transparent 28rem), radial-gradient(circle at 94% 16%, rgba(20, 184, 166, .10), transparent 25rem);
+  }
+  .dark .app-shell {
+    background-image: radial-gradient(circle at 8% 5%, rgba(99, 102, 241, .16), transparent 30rem), radial-gradient(circle at 94% 16%, rgba(14, 165, 233, .10), transparent 28rem);
+  }
+  .surface-card { @apply rounded-[28px] border border-slate-200/70 bg-white/80 shadow-[0_18px_55px_-28px_rgba(15,23,42,.25)] backdrop-blur-xl dark:border-white/[.08] dark:bg-slate-900/75 dark:shadow-black/20; }
+  .field-control { @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-white/10 dark:bg-slate-950/60 dark:text-white dark:placeholder:text-slate-600; }
+  .primary-action { @apply inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition hover:bg-indigo-500 hover:shadow-indigo-500/30 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50; }
 }
 
 @layer utilities {

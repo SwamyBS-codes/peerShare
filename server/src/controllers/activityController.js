@@ -24,7 +24,22 @@ async function getActivities(req, res) {
       }
     });
 
-    res.json({ ok: true, logs });
+    // Call invitations are ephemeral. Clean up abandoned records left behind by a
+    // closed browser or a previous client version before returning chat history.
+    const callInviteTimeoutMs = 45 * 1000;
+    const staleCallIds = logs
+      .filter((log) =>
+        log.type === 'call-invite' &&
+        log.metadata?.status === 'pending' &&
+        Date.now() - new Date(log.createdAt).getTime() > callInviteTimeoutMs
+      )
+      .map((log) => log.id);
+
+    if (staleCallIds.length > 0) {
+      await prisma.activity.deleteMany({ where: { id: { in: staleCallIds } } });
+    }
+
+    res.json({ ok: true, logs: logs.filter((log) => !staleCallIds.includes(log.id)) });
   } catch (error) {
     console.error('[ACTIVITIES] Get Activities Error:', error);
     res.status(500).json({ ok: false, message: 'Failed to retrieve interaction logs.' });
@@ -104,8 +119,30 @@ async function updateActivity(req, res) {
   }
 }
 
+/** Remove an activity created by the signed-in user (used for expired call invites). */
+async function deleteActivity(req, res) {
+  try {
+    const { id } = req.params;
+    const activity = await prisma.activity.findUnique({ where: { id } });
+
+    if (!activity) {
+      return res.status(404).json({ ok: false, message: 'Activity not found.' });
+    }
+    if (activity.senderId !== req.user.id) {
+      return res.status(403).json({ ok: false, message: 'You can only remove your own activity.' });
+    }
+
+    await prisma.activity.delete({ where: { id } });
+    res.json({ ok: true, id });
+  } catch (error) {
+    console.error('[ACTIVITIES] Delete Activity Error:', error);
+    res.status(500).json({ ok: false, message: 'Failed to remove activity.' });
+  }
+}
+
 module.exports = {
   getActivities,
   createActivity,
   updateActivity,
+  deleteActivity,
 };

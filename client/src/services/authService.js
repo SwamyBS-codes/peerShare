@@ -72,6 +72,28 @@ export const authService = {
     return data
   },
 
+  async requestPasswordReset(email) {
+    const res = await fetch(`${API_URL}/api/auth/forgot-password-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Password reset request failed.')
+    return data
+  },
+
+  async resetPassword(email, otp, password) {
+    const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, password })
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.message || 'Password reset failed.')
+    return data
+  },
+
   /**
    * Remove authentication session
    */

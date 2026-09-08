@@ -9,7 +9,7 @@ import { useChatWebSocket } from '../hooks/useChatWebSocket'
 import { useWebRTCVideo } from '../hooks/useWebRTCVideo'
 import { useWebRTCFile } from '../hooks/useWebRTCFile'
 
-export default function ChatHub() {
+export default function ChatHub({ darkMode = true }) {
   const [currentUser] = useState(() => authService.getCurrentUser())
 
   // Core UI State
@@ -74,7 +74,7 @@ export default function ChatHub() {
   // 1. File Transfer P2P Hook
   const {
     selectedFile, setSelectedFile, transferState, setTransferState,
-    transferProgress, transferSpeed, transferFileName, setTransferFileName,
+    transferProgress, setTransferProgress, transferSpeed, transferFileName, setTransferFileName,
     transferFileSize, setTransferFileSize, fileNoteRef, currentFileRef,
     fileInviteIdRef, receiverInviteIdRef, cancelFileTransfer, cleanupFileTransfer,
     handleFileChange, handleAcceptInlineFileInvite, handleDeclineInlineFileInvite,
@@ -85,9 +85,9 @@ export default function ChatHub() {
 
   // 2. Video Call P2P Hook
   const {
-    activeCall, localStream, remoteStream, micMuted, camOff,
-    toggleMic, toggleCam, endCall, answerCall, sendCallInvite,
-    initiateWebRTCCall, handleVideoSignaling, cleanupCall, activeCallRef
+    activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted,
+    toggleMic, toggleCam, toggleSpeaker, endCall, answerCall, sendCallInvite,
+    initiateWebRTCCall, handleVideoSignaling, cleanupCall, activeCallRef, clearInviteExpiry
   } = useWebRTCVideo({
     wsRef, setMessages, toast, iceServers, selectedFriendRef, receiverInviteIdRef
   })
@@ -97,7 +97,7 @@ export default function ChatHub() {
     wsRef, currentUser, friendsRef, setFriends, setMessages, toast,
     handleVideoSignaling, handleFileSignaling, cleanupCall, cleanupFileTransfer,
     initiateWebRTCCall, initiateFileWebRTCConnection, selectedFriendRef,
-    receiverInviteIdRef, currentFileRef, setTransferState, setUnreadCounts, activeCallRef
+    receiverInviteIdRef, currentFileRef, setTransferState, setUnreadCounts, activeCallRef, clearInviteExpiry
   })
 
   // --- Core API Functions ---
@@ -108,7 +108,16 @@ export default function ChatHub() {
       const data = await res.json()
       if (data.ok) {
         setFriends(data.friends)
-        // Note: initial online status is pulled when the WS connects inside the hook!
+        // Fetching contacts often finishes just after the socket opens, so ask for
+        // their current presence immediately instead of waiting for a later event.
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          const friendNames = data.friends
+            .filter((friend) => friend.status === 'accepted')
+            .map((friend) => friend.friendUserId)
+          if (friendNames.length > 0) {
+            wsRef.current.send(JSON.stringify({ type: 'check-status', friends: friendNames }))
+          }
+        }
       }
     } catch (err) {
       console.error('Error fetching friends:', err)
@@ -317,10 +326,11 @@ export default function ChatHub() {
   const sentRequests = friends.filter((f) => f.status === 'pending' && f.sentByMe)
 
   return (
-    <div className="w-full h-full flex gap-5 px-6 mx-auto relative select-none min-h-0">
+    <div className={`mx-auto flex h-full w-full max-w-[1800px] gap-3 px-0 sm:gap-4 sm:px-2 lg:px-4 relative select-none min-h-0 ${darkMode ? 'bg-[#0b1220]' : 'bg-[#edf3fb]'}`}>
 
       {/* 1. CONTACTS SIDEBAR */}
       <ChatSidebar
+        darkMode={darkMode}
         mobileView={mobileView}
         setMobileView={setMobileView}
         searchUserId={searchUserId}
@@ -335,10 +345,13 @@ export default function ChatHub() {
         setSelectedFriend={handleSelectFriend}
         unreadCounts={unreadCounts}
         focusAddFriendInput={focusAddFriendInput}
+        currentUser={currentUser}
+        messages={messages}
       />
 
       {/* 2. CHAT / CONVERSATION AREA */}
       <ChatMessageFeed
+        darkMode={darkMode}
         selectedFriend={selectedFriend}
         mobileView={mobileView}
         setMobileView={setMobileView}
@@ -379,8 +392,10 @@ export default function ChatHub() {
         remoteStream={remoteStream}
         micMuted={micMuted}
         camOff={camOff}
+        speakerMuted={speakerMuted}
         toggleMic={toggleMic}
         toggleCam={toggleCam}
+        toggleSpeaker={toggleSpeaker}
         endCall={endCall}
       />
     </div>
