@@ -188,6 +188,67 @@ export default function ChatHub({ darkMode = true }) {
     }
   }
 
+  const handleSendVoiceNote = async (blob, durationSeconds = 0) => {
+    if (!selectedFriend || !blob) return
+
+    const fileName = `voice-note-${Date.now()}.webm`
+    const content = `Voice note (${durationSeconds ? `${durationSeconds.toFixed(1)}s` : 'audio'})`
+    const audioUrl = URL.createObjectURL(blob)
+
+    const tempMsg = {
+      id: `voice-${Date.now()}`,
+      senderId: currentUser.id,
+      receiverId: selectedFriend.friendId,
+      type: 'voice',
+      content,
+      metadata: {
+        name: fileName,
+        size: blob.size,
+        mimeType: blob.type || 'audio/webm',
+        duration: durationSeconds || 0,
+        status: 'completed'
+      },
+      createdAt: new Date().toISOString(),
+      audioUrl
+    }
+
+    setMessages((prev) => [...prev, tempMsg])
+
+    try {
+      const res = await authService.fetchAuth('/api/activities', {
+        method: 'POST',
+        body: JSON.stringify({
+          receiverId: selectedFriend.friendId,
+          type: 'voice',
+          content,
+          metadata: {
+            name: fileName,
+            size: blob.size,
+            mimeType: blob.type || 'audio/webm',
+            duration: durationSeconds || 0,
+            status: 'completed'
+          }
+        })
+      })
+
+      const data = await res.json()
+
+      if (data.ok && data.log) {
+        setMessages((prev) => prev.map((msg) => msg.id === tempMsg.id ? { ...data.log, audioUrl } : msg))
+      }
+    } catch (err) {
+      console.error('Failed to log voice note:', err)
+    }
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'signal',
+        targetUserId: selectedFriend.friendUserId.toLowerCase(),
+        data: { type: 'chat-message', text: content }
+      }))
+    }
+  }
+
   const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!selectedFriend) return
@@ -376,6 +437,7 @@ export default function ChatHub({ darkMode = true }) {
         setSelectedFile={setSelectedFile}
         currentFileRef={currentFileRef}
         handleSendMessage={handleSendMessage}
+        handleSendVoiceNote={handleSendVoiceNote}
         fileInputRef={fileInputRef}
         handleFileChange={handleFileChange}
         showAttachmentMenu={showAttachmentMenu}

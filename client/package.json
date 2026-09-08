@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.27",
+    "emoji-picker-react": "^4.20.2",
     "framer-motion": "^13.2.0",
     "html5-qrcode": "^2.3.8",
     "postcss": "^8.5.8",

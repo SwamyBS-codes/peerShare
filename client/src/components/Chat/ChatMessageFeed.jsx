@@ -1,5 +1,6 @@
 import React from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import EmojiPicker from 'emoji-picker-react'
 import { FileTransferOverlay } from './FileTransferOverlay'
 
 export function ChatMessageFeed({
@@ -28,6 +29,7 @@ export function ChatMessageFeed({
   setSelectedFile,
   currentFileRef,
   handleSendMessage,
+  handleSendVoiceNote,
   fileInputRef,
   handleFileChange,
   showAttachmentMenu,
@@ -37,6 +39,117 @@ export function ChatMessageFeed({
   focusAddFriendInput
 }) {
   const [showMoreActions, setShowMoreActions] = React.useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = React.useState(false)
+  const [isRecordingVoice, setIsRecordingVoice] = React.useState(false)
+  const [recordingSeconds, setRecordingSeconds] = React.useState(0)
+  const messageInputRef = React.useRef(null)
+  const emojiPickerRef = React.useRef(null)
+  const mediaRecorderRef = React.useRef(null)
+  const streamRef = React.useRef(null)
+  const audioChunksRef = React.useRef([])
+
+  React.useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (!emojiPickerRef.current) return
+      if (!emojiPickerRef.current.contains(event.target)) {
+        setShowEmojiPicker(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
+  React.useEffect(() => {
+    if (!isRecordingVoice) return
+
+    const intervalId = window.setInterval(() => {
+      setRecordingSeconds((value) => value + 1)
+    }, 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [isRecordingVoice])
+
+  const insertAtCursor = (emoji) => {
+    const input = messageInputRef.current
+    if (!input) {
+      setMessageText((current) => current + emoji)
+      return
+    }
+
+    const start = input.selectionStart ?? messageText.length
+    const end = input.selectionEnd ?? messageText.length
+    const nextValue = `${messageText.slice(0, start)}${emoji}${messageText.slice(end)}`
+
+    setMessageText(nextValue)
+    requestAnimationFrame(() => {
+      input.focus()
+      const cursorPos = start + emoji.length
+      input.setSelectionRange(cursorPos, cursorPos)
+    })
+  }
+
+  const stopVoiceRecording = async () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
+      setIsRecordingVoice(false)
+      setRecordingSeconds(0)
+      return
+    }
+
+    const recorder = mediaRecorderRef.current
+    const durationSeconds = recordingSeconds
+
+    recorder.onstop = async () => {
+      const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+      audioChunksRef.current = []
+
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop())
+        streamRef.current = null
+      }
+
+      if (audioBlob.size > 0 && handleSendVoiceNote) {
+        await handleSendVoiceNote(audioBlob, durationSeconds)
+      }
+    }
+
+    recorder.stop()
+    setIsRecordingVoice(false)
+    setRecordingSeconds(0)
+  }
+
+  const startVoiceRecording = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      streamRef.current = stream
+      const recorder = new MediaRecorder(stream)
+      audioChunksRef.current = []
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      setIsRecordingVoice(true)
+      setRecordingSeconds(0)
+    } catch (error) {
+      console.error('Unable to access microphone for voice note:', error)
+    }
+  }
+
+  const toggleVoiceRecording = async () => {
+    if (isRecordingVoice) {
+      await stopVoiceRecording()
+      return
+    }
+
+    await startVoiceRecording()
+  }
 
   return (
     <div className={`flex min-h-0 flex-grow flex-col overflow-hidden rounded-[28px] border shadow-2xl ${darkMode ? 'border-slate-800 bg-[#0b1220] shadow-slate-950/25' : 'border-slate-200 bg-white shadow-slate-200/60'} ${mobileView === 'chat' ? 'flex' : 'hidden md:flex'}`}>
@@ -143,6 +256,33 @@ export function ChatMessageFeed({
                             </div>
                           )}
                         </motion.div>
+                      ) : m.type === 'voice' ? (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`max-w-[78%] rounded-[22px] border p-3.5 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-800 text-sm">🎙</span>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-white">Voice note</p>
+                              <p className="text-[10px] text-slate-400">{m.metadata?.duration ? `${m.metadata.duration.toFixed(1)}s` : 'Audio'} • {m.metadata?.size ? formatSize(m.metadata.size) : 'Voice'}</p>
+                            </div>
+                          </div>
+
+                          {m.audioUrl ? (
+                            <audio controls src={m.audioUrl} className="mt-3 w-full max-w-[220px]" />
+                          ) : (
+                            <div className="mt-3 rounded-xl bg-slate-950/30 px-3 py-2 text-[11px] text-slate-300">
+                              Secure audio message ready to play
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex items-center justify-end gap-1 text-[9px] opacity-75">
+                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            {isMe && <span>✓</span>}
+                          </div>
+                        </motion.div>
                       ) : (
                         <motion.div
                           initial={{ opacity: 0, y: 8 }}
@@ -192,18 +332,51 @@ export function ChatMessageFeed({
                 </div>
               )}
 
+              {showEmojiPicker && (
+                <div ref={emojiPickerRef} className={`absolute bottom-20 left-16 z-30 w-[min(88vw,320px)] overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-slate-700 bg-[#0f172a] shadow-black/40' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
+                  <EmojiPicker
+                    onEmojiClick={(emojiData) => {
+                      insertAtCursor(emojiData.emoji)
+                    }}
+                    width="100%"
+                    height={320}
+                    previewConfig={{ showPreview: false }}
+                    searchDisabled={false}
+                    skinTonesDisabled={true}
+                    theme={darkMode ? 'dark' : 'light'}
+                  />
+                </div>
+              )}
+
               <div className="flex items-center gap-2">
                 <button type="button" onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>＋</button>
-                <button type="button" className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>☺</button>
+                <button type="button" onClick={() => setShowEmojiPicker((prev) => !prev)} className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`} aria-label="Toggle emoji picker">☺</button>
                 <input
+                  ref={messageInputRef}
                   type="text"
                   required={!selectedFile}
                   value={messageText}
                   onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault()
+                      if (messageText.trim() || selectedFile) {
+                        handleSendMessage(event)
+                      }
+                    }
+                  }}
                   placeholder={selectedFile ? 'Add a message or press Send to share file...' : 'Write a message...'}
                   className={`min-w-0 flex-1 rounded-2xl border px-4 py-2.5 text-sm outline-none ${darkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:border-sky-500' : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-sky-400'}`}
                 />
-                <button type="button" className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>🎙</button>
+                <button
+                  type="button"
+                  onClick={toggleVoiceRecording}
+                  className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${isRecordingVoice ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
+                  aria-label={isRecordingVoice ? 'Stop recording voice note' : 'Record voice note'}
+                  title={isRecordingVoice ? `Recording... ${recordingSeconds}s` : 'Record voice note'}
+                >
+                  {isRecordingVoice ? '■' : '🎙'}
+                </button>
                 <button type="submit" disabled={!messageText.trim() && !selectedFile} className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">➤</button>
               </div>
             </form>

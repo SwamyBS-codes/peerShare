@@ -20,6 +20,20 @@ export function parseJwt(token) {
   }
 }
 
+async function parseJsonResponse(response) {
+  const raw = await response.text()
+  if (!raw) return {}
+
+  try {
+    return JSON.parse(raw)
+  } catch (error) {
+    const message = raw.includes('Cannot GET /api/auth')
+      ? 'The backend reset endpoint is not available. Please redeploy the server with the latest auth routes.'
+      : 'The server responded with an unexpected non-JSON response.'
+    throw new Error(message)
+  }
+}
+
 export const authService = {
   /**
    * Request OTP code for a new account signup
@@ -30,7 +44,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, userId, password })
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'Signup request failed.')
     return data // contains ok, message, otp (only in debug mode)
   },
@@ -44,7 +58,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, userId, password, otp })
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'OTP verification failed.')
     
     // Store token in localStorage
@@ -63,7 +77,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'Login failed.')
 
     if (data.token) {
@@ -78,7 +92,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'Password reset request failed.')
     return data
   },
@@ -89,7 +103,7 @@ export const authService = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp, password })
     })
-    const data = await res.json()
+    const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'Password reset failed.')
     return data
   },
