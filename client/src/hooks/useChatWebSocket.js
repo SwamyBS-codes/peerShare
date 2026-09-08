@@ -140,11 +140,14 @@ export function useChatWebSocket({
             h.setFriends((prev) => {
               let hasChanges = false;
               const next = prev.map((f) => {
-                const cleanName = f.friendUserId.toLowerCase();
-                if (msg.statuses[cleanName] !== undefined && f.isOnline !== msg.statuses[cleanName]) {
+                const cleanName = (f.friendUserId || '').trim().toLowerCase();
+                const nextStatus = Object.entries(msg.statuses || {}).find(([key]) => key.trim().toLowerCase() === cleanName)?.[1];
+
+                if (nextStatus !== undefined && f.isOnline !== Boolean(nextStatus)) {
                   hasChanges = true;
-                  return { ...f, isOnline: msg.statuses[cleanName] };
+                  return { ...f, isOnline: Boolean(nextStatus) };
                 }
+
                 return f;
               });
               return hasChanges ? next : prev;
@@ -153,7 +156,8 @@ export function useChatWebSocket({
             // If the user we are in an active call with goes offline, clean up the call!
             if (h.activeCallRef?.current) {
               const activeFriend = h.activeCallRef.current.friendUserId.toLowerCase();
-              if (msg.statuses[activeFriend] === false) {
+              const activeStatus = Object.entries(msg.statuses || {}).find(([key]) => key.trim().toLowerCase() === activeFriend)?.[1];
+              if (activeStatus === false) {
                 h.toast.error('Call disconnected. Peer went offline.');
                 h.cleanupCall();
               }

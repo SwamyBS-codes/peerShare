@@ -25,7 +25,7 @@ function ControlButton({ label, title, onClick, active, danger, children }) {
   );
 }
 
-export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, toggleMic, toggleCam, toggleSpeaker, endCall }) {
+export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, cameraFacingMode, toggleMic, toggleCam, switchCameraFacingMode, toggleSpeaker, endCall }) {
   const localVideoRef = React.useRef(null);
   const remoteVideoRef = React.useRef(null);
   React.useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream]);
@@ -45,6 +45,7 @@ export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMut
     <nav className="mx-auto flex w-full max-w-lg items-center justify-center gap-2 rounded-[26px] border border-white/10 bg-slate-900/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:gap-3">
       <ControlButton label={micMuted ? 'Unmute' : 'Mute'} title={micMuted ? 'Turn microphone on' : 'Turn microphone off'} onClick={toggleMic} active={!micMuted}>M</ControlButton>
       <ControlButton label={camOff ? 'Camera' : 'Camera'} title={camOff ? 'Turn camera on' : 'Turn camera off'} onClick={toggleCam} active={!camOff}>{camOff ? 'C' : 'C'}</ControlButton>
+      <ControlButton label={cameraFacingMode === 'user' ? 'Front' : 'Back'} title={cameraFacingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'} onClick={() => switchCameraFacingMode(cameraFacingMode === 'user' ? 'environment' : 'user')} active>{cameraFacingMode === 'user' ? 'F' : 'B'}</ControlButton>
       <ControlButton label={speakerMuted ? 'Audio' : 'Audio'} title={speakerMuted ? 'Turn speaker on' : 'Turn speaker off'} onClick={toggleSpeaker} active={!speakerMuted}>S</ControlButton>
       <ControlButton label="End" title="End call" onClick={endCall} danger>✕</ControlButton>
     </nav>

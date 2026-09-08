@@ -50,8 +50,9 @@ export default function ChatHub({ darkMode = true }) {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && friends.length > 0) {
       const friendNames = friends
         .filter(f => f.status === 'accepted')
-        .map(f => f.friendUserId)
-      
+        .map(f => (f.friendUserId || '').trim())
+        .filter(Boolean)
+
       if (friendNames.length > 0) {
         wsRef.current.send(JSON.stringify({
           type: 'check-status',
@@ -85,8 +86,8 @@ export default function ChatHub({ darkMode = true }) {
 
   // 2. Video Call P2P Hook
   const {
-    activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted,
-    toggleMic, toggleCam, toggleSpeaker, endCall, answerCall, sendCallInvite,
+    activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, cameraFacingMode,
+    toggleMic, toggleCam, switchCameraFacingMode, toggleSpeaker, endCall, answerCall, sendCallInvite,
     initiateWebRTCCall, handleVideoSignaling, cleanupCall, activeCallRef, clearInviteExpiry
   } = useWebRTCVideo({
     wsRef, setMessages, toast, iceServers, selectedFriendRef, receiverInviteIdRef
@@ -113,7 +114,8 @@ export default function ChatHub({ darkMode = true }) {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
           const friendNames = data.friends
             .filter((friend) => friend.status === 'accepted')
-            .map((friend) => friend.friendUserId)
+            .map((friend) => (friend.friendUserId || '').trim())
+            .filter(Boolean)
           if (friendNames.length > 0) {
             wsRef.current.send(JSON.stringify({ type: 'check-status', friends: friendNames }))
           }
@@ -455,8 +457,10 @@ export default function ChatHub({ darkMode = true }) {
         micMuted={micMuted}
         camOff={camOff}
         speakerMuted={speakerMuted}
+        cameraFacingMode={cameraFacingMode}
         toggleMic={toggleMic}
         toggleCam={toggleCam}
+        switchCameraFacingMode={switchCameraFacingMode}
         toggleSpeaker={toggleSpeaker}
         endCall={endCall}
       />

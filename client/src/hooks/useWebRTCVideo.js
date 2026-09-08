@@ -15,6 +15,7 @@ export function useWebRTCVideo({
   const [micMuted, setMicMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
   const [speakerMuted, setSpeakerMuted] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState('user');
 
   const activeCallRef = useRef(null);
   const pcRef = useRef(null);
@@ -51,6 +52,50 @@ export function useWebRTCVideo({
         track.enabled = !track.enabled;
       });
       setCamOff(!camOff);
+    }
+  };
+
+  const switchCameraFacingMode = async (nextFacingMode) => {
+    if (!localStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
+
+    try {
+      const currentStream = localStreamRef.current;
+      const currentVideoTracks = currentStream.getVideoTracks();
+      const nextStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: nextFacingMode }
+        },
+        audio: false
+      });
+
+      const nextVideoTrack = nextStream.getVideoTracks()[0];
+      if (!nextVideoTrack) {
+        nextStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      const mergedStream = new MediaStream([
+        ...currentStream.getAudioTracks(),
+        nextVideoTrack
+      ]);
+
+      currentVideoTracks.forEach((track) => track.stop());
+
+      if (pcRef.current) {
+        const sender = pcRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(nextVideoTrack);
+        } else {
+          pcRef.current.addTrack(nextVideoTrack, mergedStream);
+        }
+      }
+
+      setLocalStream(mergedStream);
+      localStreamRef.current = mergedStream;
+      setCameraFacingMode(nextFacingMode);
+    } catch (err) {
+      console.error('[WebRTC] Failed to switch camera facing mode:', err);
+      toast.error('Could not switch camera type.');
     }
   };
 
@@ -137,6 +182,7 @@ export function useWebRTCVideo({
     setMicMuted(false);
     setCamOff(false);
     setSpeakerMuted(false);
+    setCameraFacingMode('user');
     callStartTimeRef.current = null;
     callInviteIdRef.current = null;
     videoPendingCandidatesRef.current = [];
@@ -159,7 +205,10 @@ export function useWebRTCVideo({
     callStartTimeRef.current = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: cameraFacingMode } },
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false }
+      });
       setLocalStream(stream);
       localStreamRef.current = stream;
     } catch (err) {
@@ -234,7 +283,7 @@ export function useWebRTCVideo({
     callStartTimeRef.current = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
       setLocalStream(stream);
       localStreamRef.current = stream;
 
@@ -268,7 +317,7 @@ export function useWebRTCVideo({
 
       let stream = localStreamRef.current;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
         setLocalStream(stream);
         localStreamRef.current = stream;
       }
@@ -337,7 +386,7 @@ export function useWebRTCVideo({
         if (data.sdp.type === 'offer') {
           let stream = localStreamRef.current;
           if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
             setLocalStream(stream);
             localStreamRef.current = stream;
           }
@@ -430,8 +479,10 @@ export function useWebRTCVideo({
     micMuted,
     camOff,
     speakerMuted,
+    cameraFacingMode,
     toggleMic,
     toggleCam,
+    switchCameraFacingMode,
     toggleSpeaker,
     endCall,
     answerCall,
