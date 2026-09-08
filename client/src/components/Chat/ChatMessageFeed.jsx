@@ -42,6 +42,7 @@ export function ChatMessageFeed({
   const [showEmojiPicker, setShowEmojiPicker] = React.useState(false)
   const [isRecordingVoice, setIsRecordingVoice] = React.useState(false)
   const [recordingSeconds, setRecordingSeconds] = React.useState(0)
+  const [voiceDraft, setVoiceDraft] = React.useState(null)
   const messageInputRef = React.useRef(null)
   const emojiPickerRef = React.useRef(null)
   const mediaRecorderRef = React.useRef(null)
@@ -82,11 +83,28 @@ export function ChatMessageFeed({
     const nextValue = `${messageText.slice(0, start)}${emoji}${messageText.slice(end)}`
 
     setMessageText(nextValue)
+
     requestAnimationFrame(() => {
-      input.focus()
       const cursorPos = start + emoji.length
-      input.setSelectionRange(cursorPos, cursorPos)
+
+      if (document.activeElement === input) {
+        input.setSelectionRange(cursorPos, cursorPos)
+      }
     })
+  }
+
+  const deleteVoiceDraft = () => {
+    if (voiceDraft?.audioUrl) {
+      URL.revokeObjectURL(voiceDraft.audioUrl)
+    }
+    setVoiceDraft(null)
+  }
+
+  const sendVoiceDraft = async () => {
+    if (!voiceDraft || !handleSendVoiceNote) return
+
+    await handleSendVoiceNote(voiceDraft.blob, voiceDraft.durationSeconds)
+    deleteVoiceDraft()
   }
 
   const stopVoiceRecording = async () => {
@@ -99,7 +117,7 @@ export function ChatMessageFeed({
     const recorder = mediaRecorderRef.current
     const durationSeconds = recordingSeconds
 
-    recorder.onstop = async () => {
+    recorder.onstop = () => {
       const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || 'audio/webm' })
       audioChunksRef.current = []
 
@@ -108,14 +126,16 @@ export function ChatMessageFeed({
         streamRef.current = null
       }
 
-      if (audioBlob.size > 0 && handleSendVoiceNote) {
-        await handleSendVoiceNote(audioBlob, durationSeconds)
+      if (audioBlob.size > 0) {
+        const audioUrl = URL.createObjectURL(audioBlob)
+        setVoiceDraft({ blob: audioBlob, durationSeconds, audioUrl })
       }
     }
 
     recorder.stop()
     setIsRecordingVoice(false)
     setRecordingSeconds(0)
+    mediaRecorderRef.current = null
   }
 
   const startVoiceRecording = async () => {
@@ -146,6 +166,10 @@ export function ChatMessageFeed({
     if (isRecordingVoice) {
       await stopVoiceRecording()
       return
+    }
+
+    if (voiceDraft) {
+      deleteVoiceDraft()
     }
 
     await startVoiceRecording()
@@ -345,6 +369,24 @@ export function ChatMessageFeed({
                     skinTonesDisabled={true}
                     theme={darkMode ? 'dark' : 'light'}
                   />
+                </div>
+              )}
+
+              {voiceDraft && (
+                <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl border p-3 ${darkMode ? 'border-slate-700 bg-slate-900/80' : 'border-slate-200 bg-slate-50'}`}>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/10 text-lg text-rose-400">🎙</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-semibold text-white">Voice note</p>
+                      <p className="text-[10px] text-slate-400">{voiceDraft.durationSeconds ? `${voiceDraft.durationSeconds.toFixed(1)}s` : 'Audio'} • Ready to send</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <audio controls src={voiceDraft.audioUrl} className="h-10 w-32" />
+                    <button type="button" onClick={deleteVoiceDraft} className="rounded-xl bg-slate-800 px-2.5 py-2 text-[10px] font-bold text-slate-200">Delete</button>
+                    <button type="button" onClick={sendVoiceDraft} className="rounded-xl bg-emerald-500 px-2.5 py-2 text-[10px] font-bold text-white">Send</button>
+                  </div>
                 </div>
               )}
 
