@@ -1,5 +1,5 @@
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as Motion, AnimatePresence } from 'framer-motion'
 import EmojiPicker from 'emoji-picker-react'
 import { FileTransferOverlay } from './FileTransferOverlay'
 
@@ -179,7 +179,7 @@ export function ChatMessageFeed({
     <div className={`flex min-h-0 flex-grow flex-col overflow-hidden rounded-[28px] border shadow-2xl ${darkMode ? 'border-slate-800 bg-[#0b1220] shadow-slate-950/25' : 'border-slate-200 bg-white shadow-slate-200/60'} ${mobileView === 'chat' ? 'flex' : 'hidden md:flex'}`}>
       <AnimatePresence mode="wait">
         {selectedFriend ? (
-          <motion.div
+          <Motion.div
             key={selectedFriend.friendId}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -242,7 +242,7 @@ export function ChatMessageFeed({
                   return (
                     <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isGrouped ? 'mt-1' : 'mt-4'}`}>
                       {(m.type === 'file-invite' || m.type === 'file') && m.metadata ? (
-                        <motion.div
+                        <Motion.div
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           className={`max-w-[80%] rounded-[22px] border p-4 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}
@@ -267,10 +267,19 @@ export function ChatMessageFeed({
                                 <button onClick={() => handleAcceptInlineFileInvite(m.id, selectedFriend.friendUserId, m.metadata.name, m.metadata.size, m.metadata.note)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white">Accept</button>
                               </div>
                             )}
+                            {!isMe && m.metadata.status === 'completed' && m.metadata.downloadUrl && (
+                              <a
+                                href={m.metadata.downloadUrl}
+                                download={m.metadata.name || 'download'}
+                                className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white transition hover:bg-emerald-400"
+                              >
+                                Download
+                              </a>
+                            )}
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       ) : m.type === 'call-invite' ? (
-                        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`max-w-[80%] rounded-[22px] border p-4 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}>
+                        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`max-w-[80%] rounded-[22px] border p-4 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}>
                           <p className="font-semibold text-white">📞 Video call</p>
                           <p className="mt-2 text-slate-300">{m.content}</p>
                           {!isMe && m.metadata.status === 'pending' && (
@@ -279,9 +288,9 @@ export function ChatMessageFeed({
                               <button onClick={() => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'declined' } } : msg)); wsRef.current.send(JSON.stringify({ type: 'invite-response', targetUserId: selectedFriend.friendUserId.toLowerCase(), accepted: false, messageId: m.id })); }} className="rounded-full bg-slate-800 px-3 py-1.5 text-[10px] font-bold text-slate-300">Decline</button>
                             </div>
                           )}
-                        </motion.div>
+                        </Motion.div>
                       ) : m.type === 'voice' ? (
-                        <motion.div
+                        <Motion.div
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           className={`max-w-[78%] rounded-[22px] border p-3.5 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}
@@ -306,9 +315,9 @@ export function ChatMessageFeed({
                             <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {isMe && <span>✓</span>}
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       ) : (
-                        <motion.div
+                        <Motion.div
                           initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
                           className={`max-w-[75%] rounded-[22px] px-4 py-2.5 text-sm leading-relaxed ${isMe ? 'rounded-br-md bg-gradient-to-r from-sky-500 to-indigo-600 text-white' : 'rounded-bl-md border border-slate-700 bg-slate-900 text-slate-200'}`}
@@ -318,7 +327,7 @@ export function ChatMessageFeed({
                             <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {isMe && <span>✓</span>}
                           </div>
-                        </motion.div>
+                        </Motion.div>
                       )}
                     </div>
                   )
@@ -422,9 +431,9 @@ export function ChatMessageFeed({
                 <button type="submit" disabled={!messageText.trim() && !selectedFile} className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">➤</button>
               </div>
             </form>
-          </motion.div>
+          </Motion.div>
         ) : (
-          <motion.div
+          <Motion.div
             key="empty"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -439,7 +448,7 @@ export function ChatMessageFeed({
               <p className={`mt-3 text-sm leading-6 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Connect directly with your peer and exchange messages securely.</p>
               <button onClick={focusAddFriendInput} className="mt-8 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">New Conversation</button>
             </div>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
     </div>

@@ -28,8 +28,20 @@ function ControlButton({ label, title, onClick, active, danger, children }) {
 export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, cameraFacingMode, toggleMic, toggleCam, switchCameraFacingMode, toggleSpeaker, endCall }) {
   const localVideoRef = React.useRef(null);
   const remoteVideoRef = React.useRef(null);
+  const remoteAudioRef = React.useRef(null);
   React.useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream]);
-  React.useEffect(() => { if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream; }, [remoteStream]);
+  React.useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
+    if (remoteAudioRef.current && remoteStream) remoteAudioRef.current.srcObject = remoteStream;
+
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.play().catch(() => {});
+    }
+
+    if (remoteAudioRef.current && remoteStream && !speakerMuted) {
+      remoteAudioRef.current.play().catch(() => {});
+    }
+  }, [remoteStream, speakerMuted]);
   if (!activeCall || (!localStream && !remoteStream)) return null;
   const connecting = !remoteStream;
 
@@ -39,7 +51,10 @@ export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMut
       <span className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold ${connecting ? 'bg-amber-400/10 text-amber-300' : 'bg-emerald-400/10 text-emerald-300'}`}><span className={`h-2 w-2 rounded-full ${connecting ? 'animate-pulse bg-amber-300' : 'bg-emerald-300'}`} />{connecting ? 'Connecting' : 'Live'}</span>
     </header>
     <main className="relative mx-auto my-3 flex w-full max-w-6xl flex-1 items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-slate-900 shadow-2xl sm:my-5">
-      {remoteStream ? <video ref={remoteVideoRef} autoPlay playsInline muted={speakerMuted} className="h-full w-full object-cover" /> : <div className="flex flex-col items-center gap-4 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full border border-indigo-400/30 bg-indigo-500/15 text-2xl animate-pulse">◌</span><div><p className="font-bold">Waiting for @{activeCall.friendUserId}</p><p className="mt-1 text-xs text-slate-400">They have 45 seconds to answer.</p></div></div>}
+      {remoteStream ? <>
+        <video ref={remoteVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+        <audio ref={remoteAudioRef} autoPlay playsInline muted={speakerMuted} />
+      </> : <div className="flex flex-col items-center gap-4 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full border border-indigo-400/30 bg-indigo-500/15 text-2xl animate-pulse">◌</span><div><p className="font-bold">Waiting for @{activeCall.friendUserId}</p><p className="mt-1 text-xs text-slate-400">They have 45 seconds to answer.</p></div></div>}
       {localStream && <div className="absolute bottom-3 right-3 aspect-[3/4] w-24 overflow-hidden rounded-2xl border border-white/20 bg-slate-950 shadow-2xl sm:bottom-5 sm:right-5 sm:w-40 sm:aspect-video">{!camOff && <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />}{camOff && <div className="flex h-full items-center justify-center text-center text-[10px] font-bold text-slate-400">Camera<br />off</div>}<span className="absolute bottom-1.5 left-2 rounded bg-black/40 px-1.5 py-0.5 text-[8px] font-bold">You</span></div>}
     </main>
     <nav className="mx-auto flex w-full max-w-lg items-center justify-center gap-2 rounded-[26px] border border-white/10 bg-slate-900/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:gap-3">
