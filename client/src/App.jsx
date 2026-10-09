@@ -8,39 +8,48 @@ import HowItWorks from './pages/HowItWorks'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import ChatHub from './pages/ChatHub'
+import LinkConnectPage from './pages/LinkConnectPage'
 import { authService } from './services/authService'
 
 function AppContent({ darkMode, setDarkMode, currentUser }) {
   const location = useLocation()
   const isAuthRoute = ['/login', '/register'].includes(location.pathname)
-  const isDashboardOrShare = ['/'].includes(location.pathname)
+  const isLinkRoute = location.pathname.startsWith('/link/')
+  const isMessengerShell = location.pathname === '/'
 
   return (
-    <div className={`app-shell relative ${isDashboardOrShare ? 'h-screen overflow-hidden' : 'min-h-screen'} text-slate-900 transition-colors duration-300 dark:text-slate-100 flex flex-col justify-between`}>
-      {!isAuthRoute && (
-        <>
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-400/10 dark:bg-indigo-500/5 blur-[120px] pointer-events-none float-slow" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-cyan-400/10 dark:bg-cyan-500/5 blur-[150px] pointer-events-none float-slower" />
-        </>
-      )}
-
-      <div className={`relative z-10 flex flex-col ${isDashboardOrShare ? 'h-full overflow-hidden' : 'min-h-screen'}`}>
-        {!isAuthRoute && <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />}
-        <main className={`${isAuthRoute ? 'h-full w-full' : `h-full w-full pt-[76px] ${isDashboardOrShare ? 'pb-3 px-2 sm:px-4 overflow-hidden' : 'pb-12'}`}`}>
+    <div
+      className={`relative flex flex-col ${
+        isMessengerShell || isLinkRoute
+          ? 'app-shell-messenger messenger-shell relative h-[100dvh] overflow-hidden'
+          : isAuthRoute
+            ? 'app-shell h-[100dvh] overflow-hidden'
+            : 'app-shell min-h-[100dvh]'
+      }`}
+    >
+      <div className={`relative z-10 flex flex-1 flex-col ${isMessengerShell || isAuthRoute ? 'h-full min-h-0 overflow-hidden' : 'min-h-[100dvh]'}`}>
+        {!isAuthRoute && !isMessengerShell && !isLinkRoute && (
+          <Navbar darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} />
+        )}
+        <main
+          className={
+            isAuthRoute
+              ? 'h-full w-full min-h-0'
+              : isMessengerShell || isLinkRoute
+                ? 'h-full w-full min-h-0 overflow-hidden'
+                : 'w-full pt-[60px] pb-10'
+          }
+        >
           <Routes>
             <Route
               path="/"
-              element={currentUser ? <ChatHub darkMode={darkMode} /> : <Navigate to="/login" replace />}
+              element={currentUser ? <ChatHub darkMode={darkMode} onToggleDarkMode={() => setDarkMode((v) => !v)} /> : <Navigate to="/login" replace />}
             />
 
-            <Route
-              path="/login"
-              element={!currentUser ? <Login /> : <Navigate to="/" replace />}
-            />
-            <Route
-              path="/register"
-              element={!currentUser ? <Register /> : <Navigate to="/" replace />}
-            />
+            <Route path="/link/:code" element={<LinkConnectPage />} />
+
+            <Route path="/login" element={!currentUser ? <Login /> : <Navigate to="/" replace />} />
+            <Route path="/register" element={!currentUser ? <Register /> : <Navigate to="/" replace />} />
 
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/about" element={<About />} />
@@ -49,9 +58,9 @@ function AppContent({ darkMode, setDarkMode, currentUser }) {
           </Routes>
         </main>
 
-        {!isAuthRoute && !isDashboardOrShare && (
-          <footer className="w-full border-t border-slate-200/40 py-6 text-center text-xs text-slate-400 backdrop-blur-sm dark:border-slate-800/30 dark:text-slate-500">
-            <p>© {new Date().getFullYear()} PeerShare. Built with WebRTC & WebSocket signaling. Secure P2P communication.</p>
+        {!isAuthRoute && !isMessengerShell && !isLinkRoute && (
+          <footer className="border-t border-chat-border py-5 text-center text-xs text-chat-muted dark:border-chat-borderDark dark:text-chat-mutedDark">
+            <p>© {new Date().getFullYear()} PeerShare · Direct P2P messaging &amp; file transfer</p>
           </footer>
         )}
       </div>
@@ -71,6 +80,7 @@ function App() {
     const root = document.documentElement
     root.classList.toggle('dark', darkMode)
     localStorage.setItem('peershare-theme', darkMode ? 'dark' : 'light')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', darkMode ? '#0c0f16' : '#6366f1')
   }, [darkMode])
 
   useEffect(() => {
@@ -88,20 +98,20 @@ function App() {
   return (
     <BrowserRouter>
       <AppContent darkMode={darkMode} setDarkMode={setDarkMode} currentUser={currentUser} />
-      <Toaster 
-        position="bottom-right" 
-        toastOptions={{ 
-          duration: 3000,
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2800,
           style: {
-            background: darkMode ? '#1e293b' : '#ffffff',
-            color: darkMode ? '#f8fafc' : '#0f172a',
-            border: darkMode ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
-            borderRadius: '16px',
+            background: darkMode ? '#202c33' : '#ffffff',
+            color: darkMode ? '#e9edef' : '#111b21',
+            border: darkMode ? '1px solid #2a3942' : '1px solid #e9edef',
+            borderRadius: '8px',
             fontSize: '14px',
-            fontWeight: '600',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)'
-          }
-        }} 
+            fontWeight: '500',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+          },
+        }}
       />
     </BrowserRouter>
   )

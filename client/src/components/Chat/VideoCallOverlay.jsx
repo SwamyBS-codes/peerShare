@@ -1,68 +1,145 @@
-import React from 'react';
+import React from 'react'
+import { IconClose, IconMic, IconVideo } from '../icons/MessageIcons'
 
-function ControlButton({ label, title, onClick, active, danger, children }) {
+function ControlButton({ title, onClick, active, danger, children }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
       aria-label={title}
-      className={`group flex min-w-[72px] flex-col items-center gap-2 rounded-2xl px-2 py-2 text-center transition duration-200 active:scale-95 ${danger ? 'text-white' : 'text-slate-100'}`}
-    >
-      <span
-        className={`flex h-14 w-14 items-center justify-center rounded-full border text-lg font-bold shadow-lg transition ${danger
-          ? 'border-rose-500/40 bg-rose-500 text-white shadow-rose-500/25 hover:bg-rose-400'
+      className={`flex h-12 w-12 items-center justify-center rounded-full transition active:scale-95 ${
+        danger
+          ? 'bg-chat-danger text-white hover:bg-red-600'
           : active
-            ? 'border-white/15 bg-white text-slate-950 shadow-white/10 hover:bg-slate-100'
-            : 'border-white/10 bg-white/10 text-white hover:bg-white/15'}`}
-      >
-        {children}
-      </span>
-      <span className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${danger ? 'text-rose-200' : active ? 'text-slate-200' : 'text-slate-300'}`}>
-        {label}
-      </span>
+            ? 'bg-white text-[#111b21] hover:bg-white/90'
+            : 'bg-white/15 text-white hover:bg-white/25'
+      }`}
+    >
+      {children}
     </button>
-  );
+  )
 }
 
-export function VideoCallOverlay({ activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, cameraFacingMode, toggleMic, toggleCam, switchCameraFacingMode, toggleSpeaker, endCall }) {
-  const localVideoRef = React.useRef(null);
-  const remoteVideoRef = React.useRef(null);
-  const remoteAudioRef = React.useRef(null);
-  React.useEffect(() => { if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream; }, [localStream]);
+export function VideoCallOverlay({
+  activeCall,
+  localStream,
+  remoteStream,
+  micMuted,
+  camOff,
+  speakerMuted,
+  cameraFacingMode,
+  toggleMic,
+  toggleCam,
+  switchCameraFacingMode,
+  toggleSpeaker,
+  endCall,
+}) {
+  const localVideoRef = React.useRef(null)
+  const remoteVideoRef = React.useRef(null)
+  const remoteAudioRef = React.useRef(null)
+
   React.useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
-    if (remoteAudioRef.current && remoteStream) remoteAudioRef.current.srcObject = remoteStream;
+    if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream
+  }, [localStream])
+
+  React.useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream
+    if (remoteAudioRef.current && remoteStream) remoteAudioRef.current.srcObject = remoteStream
 
     if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.play().catch(() => {});
+      remoteVideoRef.current.play().catch(() => {})
     }
 
     if (remoteAudioRef.current && remoteStream && !speakerMuted) {
-      remoteAudioRef.current.play().catch(() => {});
+      remoteAudioRef.current.play().catch(() => {})
     }
-  }, [remoteStream, speakerMuted]);
-  if (!activeCall || (!localStream && !remoteStream)) return null;
-  const connecting = !remoteStream;
+  }, [remoteStream, speakerMuted])
 
-  return <div className="fixed inset-0 z-50 flex min-h-[100dvh] flex-col bg-[#090b14] p-3 text-white sm:p-6">
-    <header className="mx-auto flex w-full max-w-6xl items-center justify-between rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-2.5 backdrop-blur-xl sm:px-4">
-      <div className="min-w-0"><p className="truncate text-sm font-bold">@{activeCall.friendUserId}</p><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{connecting ? 'Calling securely…' : 'Encrypted video call'}</p></div>
-      <span className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-[10px] font-bold ${connecting ? 'bg-amber-400/10 text-amber-300' : 'bg-emerald-400/10 text-emerald-300'}`}><span className={`h-2 w-2 rounded-full ${connecting ? 'animate-pulse bg-amber-300' : 'bg-emerald-300'}`} />{connecting ? 'Connecting' : 'Live'}</span>
-    </header>
-    <main className="relative mx-auto my-3 flex w-full max-w-6xl flex-1 items-center justify-center overflow-hidden rounded-[28px] border border-white/10 bg-slate-900 shadow-2xl sm:my-5">
-      {remoteStream ? <>
-        <video ref={remoteVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-        <audio ref={remoteAudioRef} autoPlay playsInline muted={speakerMuted} />
-      </> : <div className="flex flex-col items-center gap-4 text-center"><span className="flex h-16 w-16 items-center justify-center rounded-full border border-indigo-400/30 bg-indigo-500/15 text-2xl animate-pulse">◌</span><div><p className="font-bold">Waiting for @{activeCall.friendUserId}</p><p className="mt-1 text-xs text-slate-400">They have 45 seconds to answer.</p></div></div>}
-      {localStream && <div className="absolute bottom-3 right-3 aspect-[3/4] w-24 overflow-hidden rounded-2xl border border-white/20 bg-slate-950 shadow-2xl sm:bottom-5 sm:right-5 sm:w-40 sm:aspect-video">{!camOff && <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />}{camOff && <div className="flex h-full items-center justify-center text-center text-[10px] font-bold text-slate-400">Camera<br />off</div>}<span className="absolute bottom-1.5 left-2 rounded bg-black/40 px-1.5 py-0.5 text-[8px] font-bold">You</span></div>}
-    </main>
-    <nav className="mx-auto flex w-full max-w-lg items-center justify-center gap-2 rounded-[26px] border border-white/10 bg-slate-900/85 p-3 shadow-[0_18px_45px_rgba(15,23,42,0.45)] backdrop-blur-xl sm:gap-3">
-      <ControlButton label={micMuted ? 'Unmute' : 'Mute'} title={micMuted ? 'Turn microphone on' : 'Turn microphone off'} onClick={toggleMic} active={!micMuted}>M</ControlButton>
-      <ControlButton label={camOff ? 'Camera' : 'Camera'} title={camOff ? 'Turn camera on' : 'Turn camera off'} onClick={toggleCam} active={!camOff}>{camOff ? 'C' : 'C'}</ControlButton>
-      <ControlButton label={cameraFacingMode === 'user' ? 'Front' : 'Back'} title={cameraFacingMode === 'user' ? 'Switch to back camera' : 'Switch to front camera'} onClick={() => switchCameraFacingMode(cameraFacingMode === 'user' ? 'environment' : 'user')} active>{cameraFacingMode === 'user' ? 'F' : 'B'}</ControlButton>
-      <ControlButton label={speakerMuted ? 'Audio' : 'Audio'} title={speakerMuted ? 'Turn speaker on' : 'Turn speaker off'} onClick={toggleSpeaker} active={!speakerMuted}>S</ControlButton>
-      <ControlButton label="End" title="End call" onClick={endCall} danger>✕</ControlButton>
-    </nav>
-  </div>;
+  if (!activeCall || (!localStream && !remoteStream)) return null
+  const connecting = !remoteStream
+  const isAudio = activeCall.callMode === 'audio'
+
+  return (
+    <div className="fixed inset-0 z-[60] flex min-h-[100dvh] flex-col bg-ps-auth text-[#e8eaef]">
+      <header className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-6">
+        <div className="min-w-0">
+          <p className="truncate text-base font-medium">{activeCall.friendUserId}</p>
+          <p className="text-xs text-chat-mutedDark">
+            {connecting ? 'Ringing…' : isAudio ? 'Voice call' : 'End-to-end encrypted'}
+          </p>
+        </div>
+        <span
+          className={`flex shrink-0 items-center gap-2 rounded-full px-3 py-1 text-[11px] font-semibold ${
+            connecting ? 'bg-amber-500/15 text-amber-200' : 'bg-chat-accent/20 text-chat-accentLight'
+          }`}
+        >
+          <span className={`h-2 w-2 rounded-full ${connecting ? 'animate-pulse bg-amber-300' : 'bg-chat-accentLight'}`} />
+          {connecting ? 'Connecting' : 'Live'}
+        </span>
+      </header>
+
+      <main className="relative mx-3 mb-3 flex flex-1 overflow-hidden rounded-xl border border-indigo-400/15 bg-chat-headerDark sm:mx-6">
+        {remoteStream ? (
+          <>
+            {!isAudio && (
+              <video ref={remoteVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
+            )}
+            <audio ref={remoteAudioRef} autoPlay playsInline muted={speakerMuted} />
+            {isAudio && (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                <div className="grid h-24 w-24 place-items-center rounded-full bg-chat-accent/20 text-3xl font-semibold text-chat-accentLight">
+                  {(activeCall.friendUserId || '?').slice(0, 2).toUpperCase()}
+                </div>
+                <p className="text-sm text-chat-mutedDark">@{activeCall.friendUserId}</p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+            <div className="grid h-20 w-20 place-items-center rounded-full bg-chat-accent/20 text-2xl font-semibold text-chat-accentLight">
+              {(activeCall.friendUserId || '?').slice(0, 2).toUpperCase()}
+            </div>
+            <p className="text-sm text-chat-mutedDark">Waiting for {activeCall.friendUserId}…</p>
+          </div>
+        )}
+        {localStream && !isAudio && (
+          <div className="absolute bottom-3 right-3 aspect-[3/4] w-24 overflow-hidden rounded-lg border-2 border-white/20 bg-black shadow-lg sm:bottom-4 sm:right-4 sm:w-36 sm:aspect-video">
+            {!camOff && <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover mirror" />}
+            {camOff && (
+              <div className="flex h-full items-center justify-center text-center text-[10px] font-medium text-chat-mutedDark">
+                Camera off
+              </div>
+            )}
+          </div>
+        )}
+      </main>
+
+      <nav className="safe-bottom flex shrink-0 items-center justify-center gap-4 px-4 pb-6 pt-2">
+        <ControlButton title={micMuted ? 'Unmute' : 'Mute'} onClick={toggleMic} active={!micMuted}>
+          <IconMic className={`h-5 w-5 ${micMuted ? 'opacity-50' : ''}`} />
+        </ControlButton>
+        {!isAudio && (
+          <>
+            <ControlButton title={camOff ? 'Camera on' : 'Camera off'} onClick={toggleCam} active={!camOff}>
+              <IconVideo className={`h-5 w-5 ${camOff ? 'opacity-50' : ''}`} />
+            </ControlButton>
+            <ControlButton
+              title="Switch camera"
+              onClick={() => switchCameraFacingMode(cameraFacingMode === 'user' ? 'environment' : 'user')}
+              active
+            >
+              <span className="text-xs font-bold">{cameraFacingMode === 'user' ? 'F' : 'B'}</span>
+            </ControlButton>
+          </>
+        )}
+        <ControlButton title={speakerMuted ? 'Speaker on' : 'Speaker off'} onClick={toggleSpeaker} active={!speakerMuted}>
+          <span className="text-xs font-bold">S</span>
+        </ControlButton>
+        <ControlButton title="End call" onClick={endCall} danger>
+          <IconClose className="h-5 w-5" />
+        </ControlButton>
+      </nav>
+    </div>
+  )
 }

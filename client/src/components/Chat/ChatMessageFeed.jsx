@@ -2,10 +2,28 @@ import React from 'react'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import EmojiPicker from 'emoji-picker-react'
 import { FileTransferOverlay } from './FileTransferOverlay'
+import { MessageMetaRow } from './MessageStatusTicks'
+import { EmptyChatPane } from './EmptyChatPane'
+import { UserAvatar } from '../UserAvatar'
+import {
+  IconAttach,
+  IconBack,
+  IconFile,
+  IconLock,
+  IconMic,
+  IconMore,
+  IconPhone,
+  IconSend,
+  IconSmile,
+  IconUsers,
+  IconVideo,
+} from '../icons/MessageIcons'
 
 export function ChatMessageFeed({
   darkMode = true,
   selectedFriend,
+  selectedGroup,
+  startGroupCall,
   mobileView,
   setMobileView,
   sendCallInvite,
@@ -175,10 +193,77 @@ export function ChatMessageFeed({
     await startVoiceRecording()
   }
 
+  const bubbleClass = (isMe) => (isMe ? 'msg-bubble-out' : 'msg-bubble-in')
+
   return (
-    <div className={`flex min-h-0 flex-grow flex-col overflow-hidden rounded-[28px] border shadow-2xl ${darkMode ? 'border-slate-800 bg-[#0b1220] shadow-slate-950/25' : 'border-slate-200 bg-white shadow-slate-200/60'} ${mobileView === 'chat' ? 'flex' : 'hidden md:flex'}`}>
+    <div
+      className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${mobileView === 'chat' ? 'flex' : 'hidden md:flex'}`}
+    >
       <AnimatePresence mode="wait">
-        {selectedFriend ? (
+        {selectedGroup ? (
+          <Motion.div
+            key={`group-${selectedGroup.id}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="flex min-h-0 flex-1 flex-col"
+          >
+            <header className="flex h-[59px] shrink-0 items-center justify-between border-b border-chat-border bg-chat-header px-2 dark:border-chat-borderDark dark:bg-chat-headerDark sm:px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <button type="button" onClick={() => setMobileView('sidebar')} className="icon-btn md:hidden" aria-label="Back to chats">
+                  <IconBack />
+                </button>
+                <div className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-chat-accent/20 text-chat-accent dark:text-chat-accentLight">
+                  <IconUsers className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-medium text-[#111b21] dark:text-[#e9edef]">{selectedGroup.name}</h3>
+                  <p className="truncate text-xs text-chat-muted dark:text-chat-mutedDark">
+                    {selectedGroup.members?.length || 0} members
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={() => startGroupCall?.(selectedGroup, 'video')}
+                  className="icon-btn"
+                  aria-label="Group video call"
+                >
+                  <IconVideo />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startGroupCall?.(selectedGroup, 'audio')}
+                  className="icon-btn"
+                  aria-label="Group voice call"
+                >
+                  <IconPhone />
+                </button>
+              </div>
+            </header>
+
+            <div className="chat-wallpaper min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5 xl:px-8">
+              <div className="rounded-lg bg-black/[0.03] p-4 dark:bg-white/[0.04]">
+                <p className="text-sm font-medium text-[#111b21] dark:text-[#e9edef]">Group members</p>
+                <ul className="mt-3 space-y-2">
+                  {(selectedGroup.members || []).map((member) => (
+                    <li key={member.id || member.userId} className="flex items-center gap-2 text-sm text-chat-muted dark:text-chat-mutedDark">
+                      <span className="grid h-8 w-8 place-items-center rounded-full bg-chat-accent/15 text-xs font-semibold text-chat-accent dark:text-chat-accentLight">
+                        {(member.userId || '?').slice(0, 2).toUpperCase()}
+                      </span>
+                      @{member.userId}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-4 text-xs text-chat-muted dark:text-chat-mutedDark">
+                  Start a group voice or video call from the buttons above. Everyone in the group receives an invite.
+                </p>
+              </div>
+            </div>
+          </Motion.div>
+        ) : selectedFriend ? (
           <Motion.div
             key={selectedFriend.friendId}
             initial={{ opacity: 0, y: 8 }}
@@ -187,51 +272,57 @@ export function ChatMessageFeed({
             transition={{ duration: 0.18, ease: 'easeOut' }}
             className="flex min-h-0 flex-1 flex-col"
           >
-            <header className={`flex items-center justify-between border-b px-4 py-3 sm:px-5 ${darkMode ? 'border-slate-800 bg-[#111827]' : 'border-slate-200 bg-slate-50'}`}>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setMobileView('sidebar')} className={`md:hidden rounded-xl p-2 ${darkMode ? 'bg-slate-800 text-slate-300' : 'bg-slate-200 text-slate-700'}`}>←</button>
-                <div className="relative grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-sky-400 via-indigo-500 to-violet-600 text-[11px] font-bold text-white">
-                  {selectedFriend.friendUserId.slice(0, 2).toUpperCase()}
-                  <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 ${darkMode ? 'border-[#111827]' : 'border-white'} ${selectedFriend.isOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
-                </div>
-
-                <div>
-                  <h3 className={`text-sm font-semibold ${darkMode ? 'text-white' : 'text-slate-900'}`}>@{selectedFriend.friendUserId}</h3>
-                  <div className="mt-1 flex items-center gap-2">
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.18em] ${selectedFriend.isOnline ? 'text-emerald-400' : 'text-slate-400'}`}>
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {selectedFriend.isOnline ? 'P2P Connected' : 'Peer Offline'}
-                    </span>
-                  </div>
+            <header className="flex h-[59px] shrink-0 items-center justify-between border-b border-chat-border bg-chat-header px-2 dark:border-chat-borderDark dark:bg-chat-headerDark sm:px-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <button type="button" onClick={() => setMobileView('sidebar')} className="icon-btn md:hidden" aria-label="Back to chats">
+                  <IconBack />
+                </button>
+                <UserAvatar
+                  userId={selectedFriend.friendUserId}
+                  avatarUrl={selectedFriend.friendAvatarUrl}
+                  size="header"
+                />
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-medium text-[#111b21] dark:text-[#e9edef]">{selectedFriend.friendUserId}</h3>
+                  <p className="truncate text-xs text-chat-muted dark:text-chat-mutedDark">
+                    {selectedFriend.isOnline ? 'online' : 'offline'}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => sendCallInvite('Video connection request')} className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold transition ${darkMode ? 'bg-sky-500/10 text-sky-300 hover:bg-sky-500/20' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>◉</button>
-                <button type="button" className={`grid h-9 w-9 place-items-center rounded-full text-sm font-bold transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>☎</button>
+              <div className="flex items-center gap-0.5">
+                <button type="button" onClick={() => sendCallInvite('Incoming video call', 'video')} className="icon-btn" aria-label="Video call">
+                  <IconVideo />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sendCallInvite('Incoming voice call', 'audio')}
+                  className="icon-btn"
+                  aria-label="Voice call"
+                >
+                  <IconPhone />
+                </button>
                 <div className="relative">
-                  <button type="button" onClick={() => setShowMoreActions(prev => !prev)} className={`grid h-9 w-9 place-items-center rounded-full text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>⋯</button>
+                  <button type="button" onClick={() => setShowMoreActions((prev) => !prev)} className="icon-btn" aria-label="More">
+                    <IconMore />
+                  </button>
                   {showMoreActions && (
-                    <div className={`absolute right-0 top-11 z-20 w-44 rounded-2xl border p-2 shadow-2xl ${darkMode ? 'border-slate-700 bg-[#0b1220] shadow-black/30' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
-                      <button onClick={() => { setShowMoreActions(false); focusAddFriendInput(); }} className={`w-full rounded-xl px-2 py-2 text-left text-xs ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>Add contact</button>
-                      <button onClick={() => { setShowMoreActions(false); setShowAttachmentMenu(prev => !prev); }} className={`w-full rounded-xl px-2 py-2 text-left text-xs ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>Share file</button>
-                      <button onClick={() => { setShowMoreActions(false); setMessages([]); }} className={`w-full rounded-xl px-2 py-2 text-left text-xs ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>Clear chat</button>
+                    <div className="absolute right-0 top-11 z-20 w-48 overflow-hidden rounded-lg border border-chat-border bg-chat-sidebar shadow-lg dark:border-chat-borderDark dark:bg-chat-headerDark">
+                      <button type="button" onClick={() => { setShowMoreActions(false); focusAddFriendInput(); }} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">Add contact</button>
+                      <button type="button" onClick={() => { setShowMoreActions(false); setShowAttachmentMenu(true); }} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">Attach file</button>
+                      <button type="button" onClick={() => { setShowMoreActions(false); setMessages([]); }} className="block w-full px-4 py-2.5 text-left text-sm text-chat-danger hover:bg-chat-danger/5">Clear chat</button>
                     </div>
                   )}
                 </div>
               </div>
             </header>
 
-            <div ref={messageFeedRef} className={`min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 ${darkMode ? 'bg-[#0b1220]' : 'bg-[#f5f8fc]'}`}>
+            <div ref={messageFeedRef} className="chat-wallpaper min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3 sm:px-5 xl:px-8">
               {messages.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-center">
-                  <div className="max-w-sm">
-                    <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] border border-sky-500/30 bg-sky-500/10 text-3xl text-sky-400 shadow-lg shadow-sky-500/10">✦</div>
-                    <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-sky-400">PeerShare</p>
-                    <h2 className={`mt-4 text-2xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Start a secure conversation</h2>
-                    <p className={`mt-3 text-sm leading-6 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Connect directly with your peer and exchange messages securely.</p>
-                    <button onClick={focusAddFriendInput} className="mt-8 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">New Conversation</button>
-                  </div>
+                <div className="flex h-full min-h-[200px] flex-col items-center justify-center rounded-lg bg-black/[0.03] px-6 py-10 text-center dark:bg-white/[0.04]">
+                  <IconLock className="mb-3 h-8 w-8 text-chat-muted dark:text-chat-mutedDark" />
+                  <p className="text-sm text-chat-muted dark:text-chat-mutedDark">Messages are delivered over an encrypted peer channel.</p>
+                  <p className="mt-1 text-xs text-chat-muted/80 dark:text-chat-mutedDark/80">Say hello to @{selectedFriend.friendUserId}</p>
                 </div>
               ) : (
                 messages.map((m, index) => {
@@ -240,93 +331,107 @@ export function ChatMessageFeed({
                   const isGrouped = prevMsg && prevMsg.senderId === m.senderId && (new Date(m.createdAt) - new Date(prevMsg.createdAt) < 180000)
 
                   return (
-                    <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isGrouped ? 'mt-1' : 'mt-4'}`}>
+                    <div key={m.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} ${isGrouped ? 'mt-0.5' : 'mt-2'}`}>
                       {(m.type === 'file-invite' || m.type === 'file') && m.metadata ? (
                         <Motion.div
-                          initial={{ opacity: 0, y: 8 }}
+                          initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`max-w-[80%] rounded-[22px] border p-4 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}
+                          className={`max-w-[min(85%,320px)] px-3 py-2 text-sm ${bubbleClass(isMe)}`}
                         >
                           <div className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-800 text-lg">📁</div>
+                            <span className="grid h-10 w-10 place-items-center rounded-lg bg-chat-accent/15 text-chat-accent dark:text-chat-accentLight">
+                              <IconFile />
+                            </span>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate font-semibold text-white">{m.metadata.name}</p>
-                              <p className="text-[10px] text-slate-400">{formatSize(m.metadata.size)}</p>
+                              <p className="truncate font-medium">{m.metadata.name}</p>
+                              <p className="text-xs text-chat-muted dark:text-chat-mutedDark">{formatSize(m.metadata.size)}</p>
                             </div>
                           </div>
 
-                          {m.metadata.note && <p className="mt-3 rounded-xl bg-slate-950/40 p-2 text-slate-300">“{m.metadata.note}”</p>}
+                          {m.metadata.note && <p className="mt-2 text-sm opacity-90">“{m.metadata.note}”</p>}
 
-                          <div className="mt-3 flex items-center justify-between gap-2">
-                            <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${m.metadata.status === 'completed' ? 'text-emerald-400' : m.metadata.status === 'failed' ? 'text-rose-400' : 'text-sky-300'}`}>
-                              {m.metadata.status === 'pending' ? (isMe ? 'Sent' : 'Incoming') : m.metadata.status}
+                          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-medium text-chat-accent dark:text-chat-accentLight">
+                              {m.metadata.status === 'pending' ? (isMe ? 'Sent' : 'Incoming file') : m.metadata.status}
                             </span>
                             {!isMe && m.metadata.status === 'pending' && (
                               <div className="flex gap-2">
-                                <button onClick={() => handleDeclineInlineFileInvite(m.id, selectedFriend.friendUserId)} className="rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-slate-300">Decline</button>
-                                <button onClick={() => handleAcceptInlineFileInvite(m.id, selectedFriend.friendUserId, m.metadata.name, m.metadata.size, m.metadata.note)} className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white">Accept</button>
+                                <button type="button" onClick={() => handleDeclineInlineFileInvite(m.id, selectedFriend.friendUserId)} className="rounded-md px-2 py-1 text-xs font-semibold text-chat-muted hover:bg-black/5 dark:hover:bg-white/10">Decline</button>
+                                <button type="button" onClick={() => handleAcceptInlineFileInvite(m.id, selectedFriend.friendUserId, m.metadata.name, m.metadata.size, m.metadata.note)} className="rounded-md bg-chat-accent px-2 py-1 text-xs font-semibold text-white">Accept</button>
                               </div>
                             )}
                             {!isMe && m.metadata.status === 'completed' && m.metadata.downloadUrl && (
-                              <a
-                                href={m.metadata.downloadUrl}
-                                download={m.metadata.name || 'download'}
-                                className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white transition hover:bg-emerald-400"
-                              >
+                              <a href={m.metadata.downloadUrl} download={m.metadata.name || 'download'} className="rounded-md bg-chat-accent px-2 py-1 text-xs font-semibold text-white">
                                 Download
                               </a>
                             )}
                           </div>
+                          <MessageMetaRow
+                            time={new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            message={m}
+                            isMe={isMe}
+                          />
                         </Motion.div>
                       ) : m.type === 'call-invite' ? (
-                        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`max-w-[80%] rounded-[22px] border p-4 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}>
-                          <p className="font-semibold text-white">📞 Video call</p>
-                          <p className="mt-2 text-slate-300">{m.content}</p>
-                          {!isMe && m.metadata.status === 'pending' && (
-                            <div className="mt-3 flex gap-2">
-                              <button onClick={() => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'accepted' } } : msg)); answerCall(selectedFriend.friendUserId); }} className="rounded-full bg-emerald-500 px-3 py-1.5 text-[10px] font-bold text-white">Answer</button>
-                              <button onClick={() => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'declined' } } : msg)); wsRef.current.send(JSON.stringify({ type: 'invite-response', targetUserId: selectedFriend.friendUserId.toLowerCase(), accepted: false, messageId: m.id })); }} className="rounded-full bg-slate-800 px-3 py-1.5 text-[10px] font-bold text-slate-300">Decline</button>
+                        <Motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className={`max-w-[min(85%,320px)] px-3 py-2 text-sm ${bubbleClass(isMe)}`}>
+                          <div className="flex items-center gap-2 font-medium">
+                            {m.metadata?.callMode === 'audio' ? (
+                              <>
+                                <IconPhone className="h-4 w-4" /> Voice call
+                              </>
+                            ) : (
+                              <>
+                                <IconVideo className="h-4 w-4" /> Video call
+                              </>
+                            )}
+                          </div>
+                          <p className="mt-1 text-sm opacity-90">{m.content}</p>
+                          {!isMe && m.metadata?.status === 'pending' && (
+                            <div className="mt-2 flex gap-2">
+                              <button type="button" onClick={() => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { ...msg.metadata, status: 'accepted' } } : msg)); answerCall(selectedFriend.friendUserId, m.metadata?.callMode || 'video'); }} className="rounded-md bg-chat-accent px-3 py-1.5 text-xs font-semibold text-white">Answer</button>
+                              <button type="button" onClick={() => { setMessages(prev => prev.map(msg => msg.id === m.id ? { ...msg, metadata: { status: 'declined' } } : msg)); wsRef.current.send(JSON.stringify({ type: 'invite-response', targetUserId: selectedFriend.friendUserId.toLowerCase(), accepted: false, messageId: m.id })); }} className="rounded-md px-3 py-1.5 text-xs font-semibold text-chat-muted">Decline</button>
                             </div>
                           )}
                         </Motion.div>
                       ) : m.type === 'voice' ? (
                         <Motion.div
-                          initial={{ opacity: 0, y: 8 }}
+                          initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`max-w-[78%] rounded-[22px] border p-3.5 text-xs ${isMe ? 'rounded-br-md border-sky-500/30 bg-sky-500/10 text-slate-100' : 'rounded-bl-md border-slate-700 bg-slate-900 text-slate-100'}`}
+                          className={`max-w-[min(85%,320px)] px-3 py-2 text-sm ${bubbleClass(isMe)}`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="grid h-8 w-8 place-items-center rounded-xl bg-slate-800 text-sm">🎙</span>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-white">Voice note</p>
-                              <p className="text-[10px] text-slate-400">{m.metadata?.duration ? `${m.metadata.duration.toFixed(1)}s` : 'Audio'} • {m.metadata?.size ? formatSize(m.metadata.size) : 'Voice'}</p>
+                            <IconMic className="h-4 w-4 shrink-0" />
+                            <div className="min-w-0">
+                              <p className="font-medium">Voice message</p>
+                              <p className="text-xs text-chat-muted dark:text-chat-mutedDark">
+                                {m.metadata?.duration ? `${m.metadata.duration.toFixed(1)}s` : 'Audio'}
+                                {m.metadata?.size ? ` · ${formatSize(m.metadata.size)}` : ''}
+                              </p>
                             </div>
                           </div>
-
                           {m.audioUrl ? (
-                            <audio controls src={m.audioUrl} className="mt-3 w-full max-w-[220px]" />
+                            <audio controls src={m.audioUrl} className="mt-2 h-9 w-full max-w-[240px]" />
                           ) : (
-                            <div className="mt-3 rounded-xl bg-slate-950/30 px-3 py-2 text-[11px] text-slate-300">
-                              Secure audio message ready to play
-                            </div>
+                            <p className="mt-2 text-xs text-chat-muted dark:text-chat-mutedDark">Audio ready</p>
                           )}
-
-                          <div className="mt-2 flex items-center justify-end gap-1 text-[9px] opacity-75">
-                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isMe && <span>✓</span>}
-                          </div>
+                          <MessageMetaRow
+                            time={new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            message={m}
+                            isMe={isMe}
+                          />
                         </Motion.div>
                       ) : (
                         <Motion.div
-                          initial={{ opacity: 0, y: 8 }}
+                          initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className={`max-w-[75%] rounded-[22px] px-4 py-2.5 text-sm leading-relaxed ${isMe ? 'rounded-br-md bg-gradient-to-r from-sky-500 to-indigo-600 text-white' : 'rounded-bl-md border border-slate-700 bg-slate-900 text-slate-200'}`}
+                          className={`max-w-[min(85%,480px)] px-3 py-1.5 text-[15px] leading-[1.35] ${bubbleClass(isMe)}`}
                         >
-                          <p>{m.content}</p>
-                          <div className="mt-1 flex items-center justify-end gap-1 text-[9px] opacity-75">
-                            <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isMe && <span>✓</span>}
-                          </div>
+                          <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                          <MessageMetaRow
+                            time={new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            message={m}
+                            isMe={isMe}
+                          />
                         </Motion.div>
                       )}
                     </div>
@@ -346,27 +451,28 @@ export function ChatMessageFeed({
             />
 
             {selectedFile && (
-              <div className="mx-4 mb-2 flex items-center justify-between rounded-2xl border border-sky-500/30 bg-slate-900 p-2 text-xs text-slate-200">
+              <div className="mx-3 mb-1 flex items-center justify-between rounded-lg border border-chat-border bg-white px-3 py-2 text-xs dark:border-chat-borderDark dark:bg-chat-headerDark">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{selectedFile.name}</p>
-                  <p className="text-[10px] text-slate-400">{formatSize(selectedFile.size)}</p>
+                  <p className="truncate font-medium">{selectedFile.name}</p>
+                  <p className="text-chat-muted dark:text-chat-mutedDark">{formatSize(selectedFile.size)}</p>
                 </div>
-                <button type="button" onClick={() => { setSelectedFile(null); if(currentFileRef) currentFileRef.current = null; if(fileInputRef && fileInputRef.current) fileInputRef.current.value = ''; }} className="ml-2 rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-bold text-rose-300">Remove</button>
+                <button type="button" onClick={() => { setSelectedFile(null); if (currentFileRef) currentFileRef.current = null; if (fileInputRef?.current) fileInputRef.current.value = ''; }} className="ml-2 text-xs font-semibold text-chat-danger">Remove</button>
               </div>
             )}
 
-            <form onSubmit={handleSendMessage} className={`relative border-t p-3 sm:p-4 ${darkMode ? 'border-slate-800 bg-[#111827]' : 'border-slate-200 bg-slate-50'}`}>
+            <form onSubmit={handleSendMessage} className="composer-shell safe-bottom relative">
               <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
 
               {showAttachmentMenu && (
-                <div className={`absolute bottom-20 left-4 z-20 w-48 rounded-2xl border p-2 shadow-2xl ${darkMode ? 'border-slate-700 bg-[#0b1220] shadow-black/30' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
-                  <button type="button" onClick={() => { setShowAttachmentMenu(false); fileInputRef.current?.click(); }} className={`w-full rounded-xl px-2 py-2 text-left text-sm ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>📄 Document</button>
-                  <button type="button" onClick={() => { setShowAttachmentMenu(false); sendCallInvite('Video connection request'); }} className={`w-full rounded-xl px-2 py-2 text-left text-sm ${darkMode ? 'text-slate-200 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'}`}>📹 Video call</button>
+                <div className="absolute bottom-full left-3 z-20 mb-2 w-44 overflow-hidden rounded-lg border border-chat-border bg-chat-sidebar shadow-lg dark:border-chat-borderDark dark:bg-chat-headerDark">
+                  <button type="button" onClick={() => { setShowAttachmentMenu(false); fileInputRef.current?.click(); }} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">Document</button>
+                  <button type="button" onClick={() => { setShowAttachmentMenu(false); sendCallInvite('Incoming video call', 'video'); }} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">Video call</button>
+                  <button type="button" onClick={() => { setShowAttachmentMenu(false); sendCallInvite('Incoming voice call', 'audio'); }} className="block w-full px-4 py-2.5 text-left text-sm hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">Voice call</button>
                 </div>
               )}
 
               {showEmojiPicker && (
-                <div ref={emojiPickerRef} className={`absolute bottom-20 left-16 z-30 w-[min(88vw,320px)] overflow-hidden rounded-2xl border shadow-2xl ${darkMode ? 'border-slate-700 bg-[#0f172a] shadow-black/40' : 'border-slate-200 bg-white shadow-slate-200/80'}`}>
+                <div ref={emojiPickerRef} className="absolute bottom-full left-12 z-30 mb-2 w-[min(88vw,320px)] overflow-hidden rounded-lg border border-chat-border bg-chat-sidebar shadow-lg dark:border-chat-borderDark dark:bg-chat-headerDark">
                   <EmojiPicker
                     onEmojiClick={(emojiData) => {
                       insertAtCursor(emojiData.emoji)
@@ -382,26 +488,26 @@ export function ChatMessageFeed({
               )}
 
               {voiceDraft && (
-                <div className={`mb-3 flex items-center justify-between gap-3 rounded-2xl border p-3 ${darkMode ? 'border-slate-700 bg-slate-900/80' : 'border-slate-200 bg-slate-50'}`}>
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-rose-500/10 text-lg text-rose-400">🎙</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold text-white">Voice note</p>
-                      <p className="text-[10px] text-slate-400">{voiceDraft.durationSeconds ? `${voiceDraft.durationSeconds.toFixed(1)}s` : 'Audio'} • Ready to send</p>
-                    </div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-chat-border bg-white p-2 dark:border-chat-borderDark dark:bg-[#2a3942]">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <IconMic className="h-5 w-5 shrink-0 text-chat-accent" />
+                    <span className="text-xs">{voiceDraft.durationSeconds ? `${voiceDraft.durationSeconds.toFixed(1)}s` : 'Voice'} · ready</span>
                   </div>
-
                   <div className="flex items-center gap-2">
-                    <audio controls src={voiceDraft.audioUrl} className="h-10 w-32" />
-                    <button type="button" onClick={deleteVoiceDraft} className="rounded-xl bg-slate-800 px-2.5 py-2 text-[10px] font-bold text-slate-200">Delete</button>
-                    <button type="button" onClick={sendVoiceDraft} className="rounded-xl bg-emerald-500 px-2.5 py-2 text-[10px] font-bold text-white">Send</button>
+                    <audio controls src={voiceDraft.audioUrl} className="h-8 max-w-[140px]" />
+                    <button type="button" onClick={deleteVoiceDraft} className="text-xs font-semibold text-chat-muted">Delete</button>
+                    <button type="button" onClick={sendVoiceDraft} className="primary-action !px-3 !py-1.5 !text-xs">Send</button>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-2">
-                <button type="button" onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}>＋</button>
-                <button type="button" onClick={() => setShowEmojiPicker((prev) => !prev)} className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`} aria-label="Toggle emoji picker">☺</button>
+              <div className="flex w-full items-end gap-2">
+                <button type="button" onClick={() => setShowEmojiPicker((prev) => !prev)} className="icon-btn shrink-0" aria-label="Emoji">
+                  <IconSmile />
+                </button>
+                <button type="button" onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} className="icon-btn shrink-0" aria-label="Attach">
+                  <IconAttach />
+                </button>
                 <input
                   ref={messageInputRef}
                   type="text"
@@ -416,38 +522,37 @@ export function ChatMessageFeed({
                       }
                     }
                   }}
-                  placeholder={selectedFile ? 'Add a message or press Send to share file...' : 'Write a message...'}
-                  className={`min-w-0 flex-1 rounded-2xl border px-4 py-2.5 text-sm outline-none ${darkMode ? 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-500 focus:border-sky-500' : 'border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:border-sky-400'}`}
+                  placeholder={selectedFile ? 'Caption (optional)' : 'Type a message'}
+                  className="composer-input"
                 />
-                <button
-                  type="button"
-                  onClick={toggleVoiceRecording}
-                  className={`grid h-10 w-10 place-items-center rounded-2xl text-lg transition ${isRecordingVoice ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : darkMode ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-slate-200 text-slate-700 hover:bg-slate-300'}`}
-                  aria-label={isRecordingVoice ? 'Stop recording voice note' : 'Record voice note'}
-                  title={isRecordingVoice ? `Recording... ${recordingSeconds}s` : 'Record voice note'}
-                >
-                  {isRecordingVoice ? '■' : '🎙'}
-                </button>
-                <button type="submit" disabled={!messageText.trim() && !selectedFile} className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 text-lg font-bold text-white shadow-lg shadow-sky-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">➤</button>
+                {messageText.trim() || selectedFile ? (
+                  <button type="submit" className="icon-btn-accent shrink-0" aria-label="Send">
+                    <IconSend className="h-5 w-5" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={toggleVoiceRecording}
+                    className={`icon-btn shrink-0 ${isRecordingVoice ? '!bg-chat-danger !text-white' : ''}`}
+                    aria-label={isRecordingVoice ? 'Stop recording' : 'Record voice'}
+                    title={isRecordingVoice ? `Recording ${recordingSeconds}s` : 'Record voice'}
+                  >
+                    {isRecordingVoice ? <span className="text-xs font-bold">■</span> : <IconMic />}
+                  </button>
+                )}
               </div>
             </form>
           </Motion.div>
         ) : (
           <Motion.div
             key="empty"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className={`flex min-h-0 flex-1 items-center justify-center p-8 ${darkMode ? 'bg-[#0b1220]' : 'bg-[#f5f8fc]'}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="flex min-h-0 flex-1 flex-col"
           >
-            <div className="text-center">
-              <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] border border-sky-500/30 bg-sky-500/10 text-3xl text-sky-400 shadow-lg shadow-sky-500/10">✦</div>
-              <p className="mt-6 text-[10px] font-bold uppercase tracking-[0.3em] text-sky-400">PeerShare</p>
-              <h2 className={`mt-4 text-3xl font-bold ${darkMode ? 'text-white' : 'text-slate-900'}`}>Start a secure conversation</h2>
-              <p className={`mt-3 text-sm leading-6 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>Connect directly with your peer and exchange messages securely.</p>
-              <button onClick={focusAddFriendInput} className="mt-8 rounded-2xl bg-sky-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition hover:bg-sky-400">New Conversation</button>
-            </div>
+            <EmptyChatPane />
           </Motion.div>
         )}
       </AnimatePresence>

@@ -1,7 +1,59 @@
-const stack = [['React 19', 'Responsive interface and real-time state.'], ['WebRTC', 'Direct calls and file data channels.'], ['WebSockets', 'Fast, lightweight connection signaling.'], ['Express + Node', 'Authentication and application API.'], ['Prisma', 'Reliable account and activity storage.'], ['Tailwind CSS', 'A responsive visual language.']]
+const stack = [
+  ['React 19', 'Real-time UI and chat state.'],
+  ['WebRTC', 'Direct calls and file data channels.'],
+  ['WebSockets', 'Lightweight signaling.'],
+  ['Express + Node', 'Auth and API.'],
+  ['Prisma', 'Accounts and activity history.'],
+  ['Tailwind CSS', 'Responsive messenger layout.'],
+]
 
 export default function About() {
-  return <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-16"><header className="max-w-3xl"><p className="text-xs font-bold uppercase tracking-[.2em] text-indigo-600 dark:text-indigo-400">About PeerShare</p><h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl dark:text-white">A simpler way to share directly.</h1><p className="mt-5 text-base leading-7 text-slate-600 dark:text-slate-400">PeerShare brings messages, files, and face-to-face calls into a private workspace built around direct browser-to-browser connections.</p></header>
-    <div className="mt-10 grid gap-5 lg:grid-cols-[.85fr_1.15fr]"><article className="surface-card p-6 sm:p-8"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-indigo-600 text-xl text-white">✦</span><h2 className="mt-6 font-display text-2xl font-bold dark:text-white">Built for real-time</h2><p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">The app uses modern browser technology for high-performance communication, with resilient connections and privacy-conscious data movement.</p><a href="https://github.com/swamybs2005" target="_blank" rel="noreferrer" className="mt-7 inline-flex rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950">View the project ↗</a></article><div className="grid gap-3 sm:grid-cols-2">{stack.map(([name, text], index) => <article key={name} className="surface-card p-5"><span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">0{index + 1}</span><h2 className="mt-6 text-sm font-bold text-slate-950 dark:text-white">{name}</h2><p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">{text}</p></article>)}</div></div>
-  </section>
+  return (
+    <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <header className="max-w-2xl">
+        <p className="text-sm font-semibold text-chat-accent dark:text-chat-accentLight">About PeerShare</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#111b21] sm:text-4xl dark:text-[#e9edef]">
+          Messaging and files, direct between browsers.
+        </h1>
+        <p className="mt-4 text-base leading-7 text-chat-muted dark:text-chat-mutedDark">
+          PeerShare combines a familiar chat experience with peer-to-peer transfers—no bulky upload servers for your content.
+        </p>
+      </header>
+
+      <div className="mt-10 grid gap-5 lg:grid-cols-[1fr_1.2fr]">
+        <article className="surface-card p-6 sm:p-8">
+          <BrandMarkInline />
+          <h2 className="mt-5 text-xl font-semibold text-[#111b21] dark:text-[#e9edef]">Built for real-time</h2>
+          <p className="mt-3 text-sm leading-6 text-chat-muted dark:text-chat-mutedDark">
+            Modern browser APIs power calls, voice notes, and large file sends while keeping the interface fast on phones and desktops.
+          </p>
+          <a
+            href="https://github.com/swamybs2005"
+            target="_blank"
+            rel="noreferrer"
+            className="primary-action mt-6 inline-flex"
+          >
+            View project
+          </a>
+        </article>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {stack.map(([name, text]) => (
+            <article key={name} className="surface-card p-5">
+              <h2 className="text-sm font-semibold text-[#111b21] dark:text-[#e9edef]">{name}</h2>
+              <p className="mt-2 text-xs leading-5 text-chat-muted dark:text-chat-mutedDark">{text}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function BrandMarkInline() {
+  return (
+    <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-chat-accent text-lg font-bold text-white">
+      PS
+    </span>
+  )
 }

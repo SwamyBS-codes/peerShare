@@ -17,10 +17,10 @@ async function getFriends(req, res) {
       },
       include: {
         user1: {
-          select: { id: true, userId: true }
+          select: { id: true, userId: true, avatarUrl: true }
         },
         user2: {
-          select: { id: true, userId: true }
+          select: { id: true, userId: true, avatarUrl: true }
         }
       }
     });
@@ -34,6 +34,7 @@ async function getFriends(req, res) {
         status: f.status,
         friendId: contact.id,
         friendUserId: contact.userId,
+        friendAvatarUrl: contact.avatarUrl || null,
         sentByMe: f.requestorId ? f.requestorId === myId : isInitiator
       };
     });

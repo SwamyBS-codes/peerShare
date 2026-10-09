@@ -7,6 +7,7 @@ const {
   getOnlineStatuses,
 } = require('../services/userManager');
 const { MAX_SIGNAL_PAYLOAD_BYTES, SIGNAL_RATE_LIMIT_PER_SEC } = require('../config');
+const linkRooms = require('../services/linkRoomManager');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret-change-me';
 
@@ -203,6 +204,110 @@ async function handleConnection(ws, req) {
         break;
       }
 
+      case 'group-call-invite': {
+        const { targets, groupId, groupName, mediaType, members } = message;
+        if (!Array.isArray(targets)) break;
+        targets.forEach((targetUserId) => {
+          const targetWs = getSocketByUsername(String(targetUserId).toLowerCase());
+          if (targetWs) {
+            sendJSON(targetWs, {
+              type: 'incoming-group-call',
+              hostUserId: userId,
+              groupId,
+              groupName,
+              mediaType: mediaType || 'video',
+              members: members || [],
+            });
+          }
+        });
+        break;
+      }
+
+      case 'group-call-response': {
+        const { targetUserId, groupId, accepted } = message;
+        const targetWs = getSocketByUsername(String(targetUserId).toLowerCase());
+        if (targetWs) {
+          sendJSON(targetWs, {
+            type: 'group-call-response',
+            fromUserId: userId,
+            groupId,
+            accepted: Boolean(accepted),
+          });
+        }
+        break;
+      }
+
+      case 'group-signal': {
+        const { targetUserId, groupId, data } = message;
+        const targetWs = getSocketByUsername(String(targetUserId).toLowerCase());
+        if (targetWs) {
+          sendJSON(targetWs, {
+            type: 'group-signal',
+            fromUserId: userId,
+            groupId,
+            data,
+          });
+        }
+        break;
+      }
+
+      case 'link-create': {
+        const code = linkRooms.createRoom(userId, ws);
+        sendJSON(ws, { type: 'link-created', code });
+        break;
+      }
+
+      case 'link-close': {
+        const { code } = message;
+        const room = linkRooms.getRoom(code);
+        if (room && room.hostUserId === userId.toLowerCase()) {
+          if (room.guestWs) {
+            sendJSON(room.guestWs, { type: 'link-closed', code, reason: 'Host closed the link.' });
+          }
+          linkRooms.closeRoom(code);
+        }
+        break;
+      }
+
+      case 'link-join': {
+        const { code } = message;
+        const result = linkRooms.joinRoom(code, userId, ws);
+        if (!result.ok) {
+          sendJSON(ws, { type: 'link-error', message: result.reason });
+          break;
+        }
+        const joinedRoom = linkRooms.getRoom(result.code);
+        sendJSON(ws, {
+          type: 'link-connected',
+          code: result.code,
+          role: 'guest',
+          peerUserId: result.hostUserId,
+        });
+        if (joinedRoom?.hostWs) {
+          sendJSON(joinedRoom.hostWs, {
+            type: 'link-connected',
+            code: result.code,
+            role: 'host',
+            peerUserId: userId.toLowerCase(),
+          });
+        }
+        break;
+      }
+
+      case 'link-signal': {
+        const { code, data } = message;
+        const peerWs = linkRooms.getPeerSocket(code, userId);
+        if (peerWs) {
+          sendJSON(peerWs, {
+            type: 'link-signal',
+            code: String(code || '').trim().toLowerCase(),
+            fromUserId: userId.toLowerCase(),
+            data,
+          });
+        }
+        break;
+      }
+
       default:
         break;
     }
@@ -210,6 +315,7 @@ async function handleConnection(ws, req) {
 
   // 4. Cleanup on disconnect
   ws.on('close', async () => {
+    linkRooms.handleSocketDisconnect(ws, sendJSON);
     unregisterUser(ws);
     // Only broadcast offline status if the user has no active socket
     if (!getSocketByUsername(userId)) {

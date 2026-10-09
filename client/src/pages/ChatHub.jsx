@@ -1,16 +1,25 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
 import { ChatSidebar } from '../components/Chat/ChatSidebar'
 import { VideoCallOverlay } from '../components/Chat/VideoCallOverlay'
+import { GroupCallOverlay } from '../components/Chat/GroupCallOverlay'
+import { IncomingGroupCallBanner } from '../components/Chat/IncomingGroupCallBanner'
+import { IncomingPeerInviteBanner } from '../components/Chat/IncomingPeerInviteBanner'
+import { LinkSharePanel } from '../components/Chat/LinkSharePanel'
 import { ChatMessageFeed } from '../components/Chat/ChatMessageFeed'
+import { ActivityPanel } from '../components/Chat/ActivityPanel'
 
 import { useChatWebSocket } from '../hooks/useChatWebSocket'
 import { useWebRTCVideo } from '../hooks/useWebRTCVideo'
+import { useWebRTCGroupCall } from '../hooks/useWebRTCGroupCall'
 import { useWebRTCFile } from '../hooks/useWebRTCFile'
+import { useWebRTCLinkFile } from '../hooks/useWebRTCLinkFile'
+import { mergeDeliveryMetadata } from '../utils/messageDelivery'
 
-export default function ChatHub({ darkMode = true }) {
-  const [currentUser] = useState(() => authService.getCurrentUser())
+export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
+  const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser())
+  const [userProfile, setUserProfile] = useState(null)
 
   // Core UI State
   const [friends, setFriends] = useState([])
@@ -21,9 +30,17 @@ export default function ChatHub({ darkMode = true }) {
   const [mobileView, setMobileView] = useState('sidebar') // 'sidebar' | 'chat'
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false)
   const [unreadCounts, setUnreadCounts] = useState({})
+  const [groups, setGroups] = useState([])
+  const [selectedGroup, setSelectedGroup] = useState(null)
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const [shareLinkCode, setShareLinkCode] = useState('')
+  const [shareLinkWaiting, setShareLinkWaiting] = useState(false)
+  const [linkSession, setLinkSession] = useState(null)
+  const [showLinkPanel, setShowLinkPanel] = useState(false)
 
   // Core Refs
   const wsRef = useRef(null)
+  const linkEventsRef = useRef({})
   const friendsRef = useRef([])
   const selectedFriendRef = useRef(null)
   const addContactInputRef = useRef(null)
@@ -84,6 +101,20 @@ export default function ChatHub({ darkMode = true }) {
     wsRef, setMessages, toast, iceServers, selectedFriendRef
   })
 
+  const {
+    setSession: setLinkFileSession,
+    sendFile: sendLinkFile,
+    cancelTransfer: cancelLinkTransfer,
+    handleLinkFileSignaling,
+    transferState: linkTransferState,
+    transferProgress: linkTransferProgress,
+    transferSpeed: linkTransferSpeed,
+    transferFileName: linkTransferFileName,
+    receivedFiles: linkReceivedFiles,
+    formatSize: linkFormatSize,
+    cleanupTransfer: cleanupLinkTransfer,
+  } = useWebRTCLinkFile({ wsRef, toast, iceServers })
+
   // 2. Video Call P2P Hook
   const {
     activeCall, localStream, remoteStream, micMuted, camOff, speakerMuted, cameraFacingMode,
@@ -93,13 +124,74 @@ export default function ChatHub({ darkMode = true }) {
     wsRef, setMessages, toast, iceServers, selectedFriendRef, receiverInviteIdRef
   })
 
+  const {
+    activeGroupCall,
+    localStream: groupLocalStream,
+    remotePeers,
+    micMuted: groupMicMuted,
+    startGroupCall,
+    acceptGroupCall,
+    declineGroupCall,
+    endGroupCall,
+    handleGroupSignaling,
+    handleGroupCallResponse,
+    cleanupGroupCall,
+    toggleMic: toggleGroupMic,
+  } = useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser })
+
   // 3. Main WebSocket Signaling Hook
-  useChatWebSocket({
+  const {
+    incomingGroupCall,
+    setIncomingGroupCall,
+    incomingPeerInvite,
+    setIncomingPeerInvite,
+  } = useChatWebSocket({
     wsRef, currentUser, friendsRef, setFriends, setMessages, toast,
-    handleVideoSignaling, handleFileSignaling, cleanupCall, cleanupFileTransfer,
+    handleVideoSignaling, handleFileSignaling, handleGroupSignaling, handleGroupCallResponse,
+    cleanupCall, cleanupFileTransfer, cleanupGroupCall,
     initiateWebRTCCall, initiateFileWebRTCConnection, selectedFriendRef,
-    receiverInviteIdRef, currentFileRef, setTransferState, setUnreadCounts, activeCallRef, clearInviteExpiry
+    receiverInviteIdRef, currentFileRef, setTransferState, setUnreadCounts, activeCallRef, clearInviteExpiry,
+    linkEventsRef,
   })
+
+  const endShareLink = useCallback(() => {
+    setShareLinkCode('')
+    setShareLinkWaiting(false)
+    cleanupLinkTransfer()
+    setLinkSession(null)
+    setShowLinkPanel(false)
+  }, [cleanupLinkTransfer])
+
+  useEffect(() => {
+    linkEventsRef.current = {
+      onCreated: (code) => {
+        setShareLinkCode(code)
+        setShareLinkWaiting(true)
+      },
+      onConnected: (session) => {
+        setShareLinkWaiting(false)
+        setShareLinkCode(session.code)
+        setLinkSession(session)
+        setLinkFileSession(session)
+        setShowLinkPanel(true)
+        toast.success(`Link peer connected: @${session.peerUserId}`)
+      },
+      onError: () => {
+        setShareLinkWaiting(false)
+      },
+      onClosed: () => {
+        toast('Link session ended', { icon: '🔗' })
+        endShareLink()
+      },
+      onFileSignal: (fromUserId, data) => {
+        handleLinkFileSignaling(fromUserId, data)
+      },
+    }
+  }, [endShareLink, handleLinkFileSignaling, setLinkFileSession])
+
+  useEffect(() => {
+    if (linkSession) setLinkFileSession(linkSession)
+  }, [linkSession, setLinkFileSession])
 
   // --- Core API Functions ---
 
@@ -126,8 +218,37 @@ export default function ChatHub({ darkMode = true }) {
     }
   }
 
+  const fetchGroups = async () => {
+    try {
+      const res = await authService.fetchAuth('/api/groups')
+      const data = await res.json()
+      if (data.ok) setGroups(data.groups || [])
+    } catch (err) {
+      console.error('Error fetching groups:', err)
+    }
+  }
+
+  const loadUserProfile = async () => {
+    try {
+      const user = await authService.fetchMyProfile()
+      setUserProfile(user)
+    } catch (err) {
+      console.error('Failed to load profile:', err)
+    }
+  }
+
   useEffect(() => {
+    setCurrentUser(authService.getCurrentUser())
+    loadUserProfile()
     fetchFriends()
+    fetchGroups()
+
+    const onAuth = () => {
+      setCurrentUser(authService.getCurrentUser())
+      loadUserProfile()
+    }
+    window.addEventListener('auth-change', onAuth)
+    return () => window.removeEventListener('auth-change', onAuth)
   }, [])
 
   // Auto-scroll chat
@@ -144,9 +265,47 @@ export default function ChatHub({ darkMode = true }) {
   }
 
   const handleSelectFriend = (friend) => {
+    setSelectedGroup(null)
     setSelectedFriend(friend)
     setUnreadCounts(prev => ({ ...prev, [friend.friendUserId]: 0 }))
     if (mobileView === 'sidebar') setMobileView('chat')
+  }
+
+  const handleSelectGroup = (group) => {
+    setSelectedFriend(null)
+    setSelectedGroup(group)
+    setMessages([])
+    if (mobileView === 'sidebar') setMobileView('chat')
+  }
+
+  const handleCreateGroup = async (name, memberUserIds) => {
+    setCreatingGroup(true)
+    try {
+      const res = await authService.fetchAuth('/api/groups', {
+        method: 'POST',
+        body: JSON.stringify({ name, memberUserIds }),
+      })
+      let data = {}
+      try {
+        data = await res.json()
+      } catch {
+        toast.error('Server error — try again after the backend is updated.')
+        return
+      }
+      if (data.ok && data.group) {
+        toast.success('Group created')
+        setGroups((prev) => [data.group, ...prev])
+        handleSelectGroup(data.group)
+        return true
+      }
+      toast.error(data.message || 'Could not create group')
+      return false
+    } catch (err) {
+      toast.error(err.message || 'Could not create group')
+      return false
+    } finally {
+      setCreatingGroup(false)
+    }
   }
 
   // Social / Chat Action Triggers
@@ -311,35 +470,81 @@ export default function ChatHub({ darkMode = true }) {
       }
     } else if (messageContent) {
       setMessageText('')
-      const tempMsg = {
-        id: Math.random().toString(),
-        senderId: currentUser.id,
-        receiverId: selectedFriend.friendId,
-        type: 'text',
-        content: messageContent,
-        createdAt: new Date().toISOString()
-      }
+      const clientMessageId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+      const tempMsg = mergeDeliveryMetadata(
+        {
+          id: clientMessageId,
+          senderId: currentUser.id,
+          receiverId: selectedFriend.friendId,
+          type: 'text',
+          content: messageContent,
+          createdAt: new Date().toISOString(),
+          metadata: { clientMessageId },
+        },
+        'sending',
+      )
       setMessages((prev) => [...prev, tempMsg])
 
+      let persistedId = clientMessageId
       try {
-        await authService.fetchAuth('/api/activities', {
+        const res = await authService.fetchAuth('/api/activities', {
           method: 'POST',
           body: JSON.stringify({
             receiverId: selectedFriend.friendId,
             type: 'text',
-            content: messageContent
-          })
+            content: messageContent,
+            metadata: { clientMessageId },
+          }),
         })
+        const data = await res.json()
+        if (data.ok && data.log) {
+          persistedId = data.log.id
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === clientMessageId
+                ? mergeDeliveryMetadata({ ...data.log, metadata: { ...data.log.metadata, clientMessageId } }, 'sent')
+                : msg,
+            ),
+          )
+        } else {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === clientMessageId
+                ? { ...mergeDeliveryMetadata(msg, 'failed'), sendError: data.message || 'Failed to save' }
+                : msg,
+            ),
+          )
+          toast.error(data.message || 'Failed to send message')
+          return
+        }
       } catch (err) {
         console.error('Failed to log message in DB:', err)
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === clientMessageId
+              ? { ...mergeDeliveryMetadata(msg, 'failed'), sendError: 'Network error' }
+              : msg,
+          ),
+        )
+        toast.error('Failed to send message')
+        return
       }
 
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: 'signal',
           targetUserId: selectedFriend.friendUserId.toLowerCase(),
-          data: { type: 'chat-message', text: messageContent }
+          data: { type: 'chat-message', text: messageContent, clientMessageId: persistedId },
         }))
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === persistedId || msg.metadata?.clientMessageId === clientMessageId
+              ? { ...mergeDeliveryMetadata(msg, 'failed'), sendError: 'Not connected' }
+              : msg,
+          ),
+        )
+        toast.error('Signaling connection is closed.')
       }
     }
   }
@@ -388,12 +593,77 @@ export default function ChatHub({ darkMode = true }) {
   const pendingRequests = friends.filter((f) => f.status === 'pending' && !f.sentByMe)
   const sentRequests = friends.filter((f) => f.status === 'pending' && f.sentByMe)
 
-  return (
-    <div className={`mx-auto flex h-full w-full max-w-[1800px] gap-3 px-0 sm:gap-4 sm:px-2 lg:px-4 relative select-none min-h-0 ${darkMode ? 'bg-[#0b1220]' : 'bg-[#edf3fb]'}`}>
+  const friendByUserId = (userId) =>
+    acceptedFriends.find((f) => f.friendUserId.toLowerCase() === String(userId).toLowerCase())
 
-      {/* 1. CONTACTS SIDEBAR */}
+  const openPeerChat = (userId) => {
+    const friend = friendByUserId(userId)
+    if (friend) handleSelectFriend(friend)
+    return friend
+  }
+
+  const dismissPeerInvite = () => setIncomingPeerInvite(null)
+
+  const handlePeerInviteOpenChat = () => {
+    if (!incomingPeerInvite) return
+    openPeerChat(incomingPeerInvite.senderUserId)
+    dismissPeerInvite()
+  }
+
+  const handlePeerInviteDecline = () => {
+    if (!incomingPeerInvite) return
+    const { senderUserId, mediaType, activity } = incomingPeerInvite
+    const friend = friendByUserId(senderUserId)
+    if (mediaType === 'file' && activity?.id && friend) {
+      handleDeclineInlineFileInvite(activity.id, friend.friendUserId)
+    } else if (friend && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'invite-response',
+          targetUserId: friend.friendUserId.toLowerCase(),
+          accepted: false,
+          messageId: activity?.id,
+        }),
+      )
+    }
+    dismissPeerInvite()
+  }
+
+  const handlePeerInviteAccept = () => {
+    if (!incomingPeerInvite) return
+    const { senderUserId, mediaType, activity } = incomingPeerInvite
+    const friend = openPeerChat(senderUserId)
+    if (!friend || !activity) {
+      dismissPeerInvite()
+      return
+    }
+
+    if (mediaType === 'file' && activity.metadata) {
+      receiverInviteIdRef.current = activity.id
+      handleAcceptInlineFileInvite(
+        activity.id,
+        friend.friendUserId,
+        activity.metadata.name,
+        activity.metadata.size,
+        activity.metadata.note,
+      )
+    } else {
+      receiverInviteIdRef.current = activity.id
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === activity.id)) return prev
+        return [...prev, activity]
+      })
+      answerCall(friend.friendUserId.toLowerCase(), activity.metadata?.callMode || mediaType || 'video')
+    }
+    dismissPeerInvite()
+  }
+
+  return (
+    <div className="relative z-[1] mx-auto flex h-full w-full min-h-0 max-w-[1680px] select-none overflow-hidden rounded-none border-x border-chat-border/60 bg-chat-sidebar shadow-2xl shadow-black/20 dark:border-chat-borderDark/80 dark:bg-chat-sidebarDark md:my-0 md:min-h-0 lg:my-2 lg:max-h-[calc(100dvh-1rem)] lg:rounded-2xl">
+
       <ChatSidebar
         darkMode={darkMode}
+        onToggleDarkMode={onToggleDarkMode}
         mobileView={mobileView}
         setMobileView={setMobileView}
         searchUserId={searchUserId}
@@ -404,18 +674,35 @@ export default function ChatHub({ darkMode = true }) {
         handleAcceptFriend={handleAcceptFriend}
         sentRequests={sentRequests}
         acceptedFriends={acceptedFriends}
+        groups={groups}
+        selectedGroup={selectedGroup}
+        onSelectGroup={handleSelectGroup}
+        onCreateGroup={handleCreateGroup}
+        creatingGroup={creatingGroup}
         selectedFriend={selectedFriend}
         setSelectedFriend={handleSelectFriend}
         unreadCounts={unreadCounts}
         focusAddFriendInput={focusAddFriendInput}
         currentUser={currentUser}
+        userProfile={userProfile}
+        onProfileUpdated={setUserProfile}
+        onFriendsRefresh={fetchFriends}
         messages={messages}
+        wsRef={wsRef}
+        shareLinkCode={shareLinkCode}
+        shareLinkWaiting={shareLinkWaiting}
+        shareLinkPeer={linkSession?.peerUserId}
+        onShareLinkEnd={endShareLink}
+        linkSession={linkSession}
+        onOpenLinkSession={() => setShowLinkPanel(true)}
       />
 
       {/* 2. CHAT / CONVERSATION AREA */}
       <ChatMessageFeed
         darkMode={darkMode}
         selectedFriend={selectedFriend}
+        selectedGroup={selectedGroup}
+        startGroupCall={startGroupCall}
         mobileView={mobileView}
         setMobileView={setMobileView}
         sendCallInvite={sendCallInvite}
@@ -449,6 +736,14 @@ export default function ChatHub({ darkMode = true }) {
         focusAddFriendInput={focusAddFriendInput}
       />
 
+      <ActivityPanel
+        friends={friends}
+        transferState={transferState}
+        transferSpeed={transferSpeed}
+        activeCall={activeCall}
+        darkMode={darkMode}
+      />
+
       {/* 3. ACTIVE P2P VIDEO CALL OVERLAY */}
       <VideoCallOverlay
         activeCall={activeCall}
@@ -464,6 +759,55 @@ export default function ChatHub({ darkMode = true }) {
         toggleSpeaker={toggleSpeaker}
         endCall={endCall}
       />
+
+      <GroupCallOverlay
+        activeGroupCall={activeGroupCall}
+        localStream={groupLocalStream}
+        remotePeers={remotePeers}
+        micMuted={groupMicMuted}
+        toggleMic={toggleGroupMic}
+        endGroupCall={endGroupCall}
+      />
+
+      <IncomingGroupCallBanner
+        invite={incomingGroupCall}
+        onAccept={() => {
+          if (incomingGroupCall) acceptGroupCall(incomingGroupCall)
+          setIncomingGroupCall(null)
+        }}
+        onDecline={() => {
+          if (incomingGroupCall) declineGroupCall(incomingGroupCall)
+          setIncomingGroupCall(null)
+        }}
+      />
+
+      <IncomingPeerInviteBanner
+        invite={incomingPeerInvite}
+        onOpenChat={handlePeerInviteOpenChat}
+        onAccept={handlePeerInviteAccept}
+        onDecline={handlePeerInviteDecline}
+      />
+
+      {showLinkPanel && linkSession ? (
+        <LinkSharePanel
+          session={linkSession}
+          onClose={() => {
+            if (shareLinkCode && wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: 'link-close', code: shareLinkCode }))
+            }
+            endShareLink()
+          }}
+          sendFile={sendLinkFile}
+          transferState={linkTransferState}
+          transferFileName={linkTransferFileName}
+          transferProgress={linkTransferProgress}
+          transferSpeed={linkTransferSpeed}
+          cancelTransfer={cancelLinkTransfer}
+          formatSize={linkFormatSize}
+          formatSpeed={formatSpeed}
+          receivedFiles={linkReceivedFiles}
+        />
+      ) : null}
     </div>
   )
 }

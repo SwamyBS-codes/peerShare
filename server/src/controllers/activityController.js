@@ -58,7 +58,7 @@ async function createActivity(req, res) {
       return res.status(400).json({ ok: false, message: 'Receiver ID and Type are required.' });
     }
 
-    if (!['text', 'file', 'call', 'video-call', 'call-invite', 'file-invite'].includes(type)) {
+    if (!['text', 'file', 'call', 'video-call', 'audio-call', 'call-invite', 'file-invite', 'voice'].includes(type)) {
       return res.status(400).json({ ok: false, message: 'Invalid activity type.' });
     }
 

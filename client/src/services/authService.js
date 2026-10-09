@@ -34,6 +34,20 @@ async function parseJsonResponse(response) {
   }
 }
 
+const TOKEN_KEY = 'peershare_token'
+
+function persistToken(token) {
+  const sessionOnly = sessionStorage.getItem('peershare_session_only') === '1'
+  localStorage.removeItem(TOKEN_KEY)
+  sessionStorage.removeItem(TOKEN_KEY)
+  if (sessionOnly) {
+    sessionStorage.setItem(TOKEN_KEY, token)
+  } else {
+    localStorage.setItem(TOKEN_KEY, token)
+  }
+}
+
+
 export const authService = {
   /**
    * Request OTP code for a new account signup
@@ -61,9 +75,8 @@ export const authService = {
     const data = await parseJsonResponse(res)
     if (!res.ok) throw new Error(data.message || 'OTP verification failed.')
     
-    // Store token in localStorage
     if (data.token) {
-      localStorage.setItem('peershare_token', data.token)
+      persistToken(data.token)
     }
     return data
   },
@@ -81,7 +94,7 @@ export const authService = {
     if (!res.ok) throw new Error(data.message || 'Login failed.')
 
     if (data.token) {
-      localStorage.setItem('peershare_token', data.token)
+      persistToken(data.token)
     }
     return data
   },
@@ -112,14 +125,26 @@ export const authService = {
    * Remove authentication session
    */
   logout() {
-    localStorage.removeItem('peershare_token')
+    localStorage.removeItem(TOKEN_KEY)
+    sessionStorage.removeItem(TOKEN_KEY)
+  },
+
+  persistTokenFromSettings(token) {
+    if (token) persistToken(token)
+  },
+
+  async fetchMyProfile() {
+    const res = await this.fetchAuth('/api/users/me')
+    const data = await parseJsonResponse(res)
+    if (!res.ok) throw new Error(data.message || 'Failed to load profile.')
+    return data.user
   },
 
   /**
    * Retrieve active token
    */
   getToken() {
-    return localStorage.getItem('peershare_token')
+    return localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY)
   },
 
   /**

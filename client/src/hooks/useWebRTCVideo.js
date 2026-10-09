@@ -24,6 +24,18 @@ export function useWebRTCVideo({
   const videoPendingCandidatesRef = useRef([]);
   const callInviteIdRef = useRef(null);
   const inviteExpiryRef = useRef(null);
+  const callModeRef = useRef('video');
+
+  const getUserMediaForCall = async (mode = callModeRef.current) => {
+    const audio = { echoCancellation: true, noiseSuppression: false, autoGainControl: false };
+    if (mode === 'audio') {
+      return navigator.mediaDevices.getUserMedia({ audio, video: false });
+    }
+    return navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: cameraFacingMode } },
+      audio,
+    });
+  };
 
   const clearInviteExpiry = () => {
     if (inviteExpiryRef.current) {
@@ -134,18 +146,20 @@ export function useWebRTCVideo({
         const durationSec = Math.floor((Date.now() - callStartTimeRef.current) / 1000);
         const mins = Math.floor(durationSec / 60);
         const secs = durationSec % 60;
-        content = `Video Call - ${mins > 0 ? `${mins}m ` : ''}${secs}s`;
-        metadata = { status: 'completed', duration: durationSec };
+        const label = callModeRef.current === 'audio' ? 'Audio Call' : 'Video Call';
+        content = `${label} - ${mins > 0 ? `${mins}m ` : ''}${secs}s`;
+        metadata = { status: 'completed', duration: durationSec, callMode: callModeRef.current };
       } else {
-        content = 'Missed Call';
+        content = callModeRef.current === 'audio' ? 'Missed audio call' : 'Missed video call';
       }
 
       if ((isCaller && callInviteIdRef.current) || (!isCaller && receiverInviteIdRef?.current)) {
         const inviteIdToPatch = isCaller ? callInviteIdRef.current : receiverInviteIdRef.current;
+        const logType = callModeRef.current === 'audio' ? 'audio-call' : 'video-call';
         authService.fetchAuth(`/api/activities/${inviteIdToPatch}`, {
           method: 'PATCH',
           body: JSON.stringify({
-            type: 'video-call',
+            type: logType,
             content,
             metadata
           })
@@ -185,10 +199,11 @@ export function useWebRTCVideo({
     setCameraFacingMode('user');
     callStartTimeRef.current = null;
     callInviteIdRef.current = null;
+    callModeRef.current = 'video';
     videoPendingCandidatesRef.current = [];
   };
 
-  const sendCallInvite = async (inviteMsg = 'Incoming Video Call') => {
+  const sendCallInvite = async (inviteMsg = 'Incoming Video Call', callMode = 'video') => {
     const friend = selectedFriendRef.current;
     if (!friend) {
       toast.error('Select a contact before calling.');
@@ -200,20 +215,19 @@ export function useWebRTCVideo({
       return;
     }
 
-    toast.loading('Calling friend...', { id: 'call' });
-    setActiveCall({ friendUserId: friend.friendUserId.toLowerCase(), role: 'caller' });
+    callModeRef.current = callMode;
+    const callLabel = callMode === 'audio' ? 'audio call' : 'video call';
+    toast.loading(`Calling ${callLabel}…`, { id: 'call' });
+    setActiveCall({ friendUserId: friend.friendUserId.toLowerCase(), role: 'caller', callMode });
     callStartTimeRef.current = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: cameraFacingMode } },
-        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false }
-      });
+      const stream = await getUserMediaForCall(callMode);
       setLocalStream(stream);
       localStreamRef.current = stream;
     } catch (err) {
       console.error('Failed to get local stream', err);
-      toast.error('Could not access camera/microphone');
+      toast.error(callMode === 'audio' ? 'Could not access microphone' : 'Could not access camera/microphone');
       cleanupCall();
       return;
     }
@@ -225,7 +239,7 @@ export function useWebRTCVideo({
           receiverId: friend.friendId,
           type: 'call-invite',
           content: inviteMsg,
-          metadata: { status: 'pending' }
+          metadata: { status: 'pending', callMode }
         })
       });
       const data = await res.json();
@@ -238,7 +252,7 @@ export function useWebRTCVideo({
           wsRef.current.send(JSON.stringify({
             type: 'invite',
             targetUserId: friend.friendUserId.toLowerCase(),
-            mediaType: 'video',
+            mediaType: callMode,
             inviteMessage: JSON.stringify(data.log)
           }));
         }
@@ -277,13 +291,14 @@ export function useWebRTCVideo({
     }
   };
 
-  const answerCall = async (targetUserId) => {
+  const answerCall = async (targetUserId, callMode = 'video') => {
     clearInviteExpiry();
-    setActiveCall({ friendUserId: targetUserId, role: 'receiver' });
+    callModeRef.current = callMode;
+    setActiveCall({ friendUserId: targetUserId, role: 'receiver', callMode });
     callStartTimeRef.current = null;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+      const stream = await getUserMediaForCall(callMode);
       setLocalStream(stream);
       localStreamRef.current = stream;
 
@@ -297,7 +312,7 @@ export function useWebRTCVideo({
       }
     } catch (err) {
       console.error('Failed to get local stream', err);
-      toast.error('Could not access camera/microphone');
+      toast.error(callMode === 'audio' ? 'Could not access microphone' : 'Could not access camera/microphone');
       cleanupCall();
 
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -313,11 +328,12 @@ export function useWebRTCVideo({
   const initiateWebRTCCall = async (targetUserId) => {
     try {
       // Ensure activeCall is set in case state was lost (e.g. browser reload)
-      setActiveCall({ friendUserId: targetUserId.toLowerCase(), role: 'caller' });
+      const mode = callModeRef.current || 'video';
+      setActiveCall({ friendUserId: targetUserId.toLowerCase(), role: 'caller', callMode: mode });
 
       let stream = localStreamRef.current;
       if (!stream) {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+        stream = await getUserMediaForCall(mode);
         setLocalStream(stream);
         localStreamRef.current = stream;
       }
@@ -384,9 +400,10 @@ export function useWebRTCVideo({
         const pc = pcRef.current;
 
         if (data.sdp.type === 'offer') {
+          const mode = activeCallRef.current?.callMode || callModeRef.current || 'video';
           let stream = localStreamRef.current;
           if (!stream) {
-            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: cameraFacingMode } }, audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+            stream = await getUserMediaForCall(mode);
             setLocalStream(stream);
             localStreamRef.current = stream;
           }

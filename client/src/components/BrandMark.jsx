@@ -1,19 +1,18 @@
 export default function BrandMark({ className = 'h-9 w-9' }) {
   return (
     <span
-      className={`relative inline-flex items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-lg shadow-indigo-500/25 transition duration-300 hover:rotate-6 ${className}`}
+      className={`relative inline-flex items-center justify-center overflow-hidden rounded-2xl bg-ps-brand shadow-lg shadow-indigo-500/30 ${className}`}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 40 40" className="h-6 w-6" fill="none">
+      <svg viewBox="0 0 40 40" className="h-[55%] w-[55%]" fill="none">
         <path
-          d="M8 20h10M22 20h10M14 14l-6 6 6 6M26 14l6 6-6 6"
+          d="M10 20c0-5.5 4.5-10 10-10 2.2 0 4.2.7 5.8 1.9M30 20c0 5.5-4.5 10-10 10-2.2 0-4.2-.7-5.8-1.9"
           stroke="white"
-          strokeWidth="3"
+          strokeWidth="2.5"
           strokeLinecap="round"
-          strokeLinejoin="round"
         />
+        <path d="M14 20h12M20 14v12" stroke="white" strokeWidth="2.5" strokeLinecap="round" opacity="0.85" />
       </svg>
-      <span className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.45),transparent_35%)]" />
     </span>
   )
 }

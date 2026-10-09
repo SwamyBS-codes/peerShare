@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'
 
 export function FileTransferOverlay({
   transferState,
@@ -6,26 +6,30 @@ export function FileTransferOverlay({
   transferProgress,
   transferSpeed,
   cancelFileTransfer,
-  formatSpeed
+  formatSpeed,
 }) {
-  if (!transferState) return null;
+  if (!transferState) return null
+
+  const active = ['connecting', 'sending', 'receiving'].includes(transferState)
 
   return (
-    <div className="mx-4 mb-2 p-3.5 rounded-2xl bg-slate-900/90 backdrop-blur border border-indigo-500/20 text-xs shadow-xl animate-fade-in">
-      <div className="flex justify-between items-center mb-1.5">
-        <div className="font-extrabold text-slate-100 flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-indigo-500 animate-ping" />
-          {transferState === 'connecting' && 'Establishing direct P2P tunnel...'}
-          {transferState === 'sending' && `Sending: ${transferFileName}`}
-          {transferState === 'receiving' && `Receiving: ${transferFileName}`}
-          {transferState === 'completed' && 'Transfer completed successfully!'}
-          {transferState === 'failed' && 'Transfer failed or cancelled.'}
+    <div className="mx-3 mb-2 rounded-lg border border-chat-border bg-white/95 px-3 py-2.5 text-xs shadow-sm backdrop-blur-sm dark:border-chat-borderDark dark:bg-chat-headerDark/95">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 font-medium text-[#111b21] dark:text-[#e9edef]">
+          {active && <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-chat-accentLight" />}
+          <span className="truncate">
+            {transferState === 'connecting' && 'Connecting peer channel…'}
+            {transferState === 'sending' && `Sending ${transferFileName}`}
+            {transferState === 'receiving' && `Receiving ${transferFileName}`}
+            {transferState === 'completed' && 'Transfer complete'}
+            {transferState === 'failed' && 'Transfer failed'}
+          </span>
         </div>
-        {['connecting', 'sending', 'receiving'].includes(transferState) && (
+        {active && (
           <button
             type="button"
             onClick={cancelFileTransfer}
-            className="text-[10px] uppercase font-black tracking-wider text-rose-500 hover:text-rose-400 bg-rose-950/20 border border-rose-500/20 px-2.5 py-1 rounded-xl transition"
+            className="shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold text-chat-danger hover:bg-chat-danger/10"
           >
             Cancel
           </button>
@@ -33,19 +37,19 @@ export function FileTransferOverlay({
       </div>
 
       {['sending', 'receiving'].includes(transferState) && (
-        <div className="space-y-1.5">
-          <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+        <div className="space-y-1">
+          <div className="h-1.5 overflow-hidden rounded-full bg-chat-border dark:bg-chat-borderDark">
             <div
-              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+              className="h-full rounded-full bg-chat-accent transition-all duration-300"
               style={{ width: `${transferProgress}%` }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-slate-400 font-semibold">
+          <div className="flex justify-between text-[10px] text-chat-muted dark:text-chat-mutedDark">
             <span>{transferProgress}%</span>
-            <span>Speed: {formatSpeed ? formatSpeed(transferSpeed) : `${transferSpeed} B/s`}</span>
+            <span>{formatSpeed ? formatSpeed(transferSpeed) : `${transferSpeed} B/s`}</span>
           </div>
         </div>
       )}
     </div>
-  );
+  )
 }
