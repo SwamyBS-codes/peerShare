@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://peer-share-rho.vercel.app/sitemap.xml
+Sitemap: https://peersharep2p.vercel.app/sitemap.xml

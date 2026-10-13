@@ -6,7 +6,7 @@ const routes = require('./routes');
 
 const app = express();
 const corsOptions = {
-  origin: process.env.CLIENT_URL || ['http://localhost:5173', 'https://peer-share-rho.vercel.app'],
+  origin: process.env.CLIENT_URL || ['http://localhost:5173', 'https://peersharep2p.vercel.app'],
   credentials: true,
 };
 app.use(cors(corsOptions));
