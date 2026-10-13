@@ -8,7 +8,6 @@ import { IncomingGroupCallBanner } from '../components/Chat/IncomingGroupCallBan
 import { IncomingPeerInviteBanner } from '../components/Chat/IncomingPeerInviteBanner'
 import { LinkSharePanel } from '../components/Chat/LinkSharePanel'
 import { ChatMessageFeed } from '../components/Chat/ChatMessageFeed'
-import { ActivityPanel } from '../components/Chat/ActivityPanel'
 
 import { useChatWebSocket } from '../hooks/useChatWebSocket'
 import { useWebRTCVideo } from '../hooks/useWebRTCVideo'
@@ -734,14 +733,6 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
         messageText={messageText}
         setMessageText={setMessageText}
         focusAddFriendInput={focusAddFriendInput}
-      />
-
-      <ActivityPanel
-        friends={friends}
-        transferState={transferState}
-        transferSpeed={transferSpeed}
-        activeCall={activeCall}
-        darkMode={darkMode}
       />
 
       {/* 3. ACTIVE P2P VIDEO CALL OVERLAY */}
