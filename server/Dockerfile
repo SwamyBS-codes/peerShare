@@ -1,22 +1,19 @@
 FROM node:22-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Copy Prisma schema before npm ci
+COPY prisma ./prisma
+
+# Install dependencies and generate Prisma Client
 RUN npm ci
 
-# Copy all project files
+# Copy remaining application files
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Expose the application port (assuming 3001 based on standard setup)
 EXPOSE 3001
 
-# Start the application
 CMD ["npm", "start"]
