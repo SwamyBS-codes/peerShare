@@ -1,4 +1,5 @@
 // Web Worker for background block hash verification using the Web Crypto API
+/** Verifies a received block and returns its computed SHA-256 digest. */
 self.onmessage = async (event) => {
   const { type, fileId, blockIndex, data, expectedHash } = event.data
 

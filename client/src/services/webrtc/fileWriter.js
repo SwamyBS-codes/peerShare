@@ -1,4 +1,6 @@
 
+/** Writes incoming file chunks using browser storage with ordered fallbacks. */
+/** Persists received file chunks and reconstructs or streams the completed file. */
 export class FileWriter {
   constructor(fileId, name, size, mimeType, options = {}) {
     this.fileId = fileId
@@ -24,6 +26,7 @@ export class FileWriter {
     this.idbStoreName = `chunks_${this.fileId.replace(/[^a-zA-Z0-9]/g, '_')}`
   }
 
+  /** Selects the best available storage backend, falling back through browser options. */
   async init(fsaHandle = null) {
     // Try FSA first if handle is provided
     if (fsaHandle) {
@@ -72,6 +75,7 @@ export class FileWriter {
     this.ramChunks = []
   }
 
+  /** Detects whether the chosen writable supports out-of-order chunk writes. */
   async verifyRandomWriteCapability() {
     try {
       // Test random write capability: write to offset 10, then offset 0
@@ -144,6 +148,7 @@ export class FileWriter {
     }
   }
 
+  /** Buffers out-of-order chunks when the selected backend only supports sequential writes. */
   async writeSequential(offset, data) {
     // If chunk matches expected offset, write it directly
     if (offset === this.nextWriteOffset) {
@@ -208,6 +213,7 @@ export class FileWriter {
     }
   }
 
+  /** Returns the completed file as a handle-backed file or reconstructed Blob. */
   async getFileBlob() {
     if (this.type === 'fsa') {
       return await this.handle.getFile()
@@ -228,6 +234,7 @@ export class FileWriter {
     return new Blob(blobs, { type: this.mimeType })
   }
 
+  /** Copies stored chunks to a writable stream without assembling a full Blob. */
   async streamTo(writableStream) {
     const writer = writableStream.getWriter()
     try {
@@ -314,6 +321,7 @@ export class FileWriter {
     })
   }
 
+  /** Closes backend resources and removes temporary storage for this transfer. */
   async cleanup() {
     try {
       await this.close()

@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+/** Shared two-panel shell for account screens, including progress and support details. */
+import { motion as Motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import BrandMark from '../BrandMark'
 
@@ -9,6 +10,7 @@ const contactItems = [
   { label: 'Security', value: 'Peer-to-peer and encrypted' },
 ]
 
+/** Wraps authentication content in the shared branded layout. */
 export default function AuthLayout({
   title,
   subtitle,
@@ -22,7 +24,7 @@ export default function AuthLayout({
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(129,140,248,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(192,132,252,0.16),transparent_34%),url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 stroke=%22%23ffffff%22 stroke-opacity=%220.05%22 stroke-width=%221%22%3E%3Cpath d=%22M0 30h60M30 0v60%22/%3E%3C/g%3E%3C/svg%3E')] opacity-80" />
 
       <div className="relative mx-auto grid min-h-[100dvh] w-full max-w-7xl lg:grid-cols-[1.05fr_0.95fr]">
-        <motion.aside
+        <Motion.aside
           className="relative flex flex-col justify-between gap-8 border-b border-white/10 px-6 py-8 sm:px-8 sm:py-10 lg:border-b-0 lg:border-r lg:border-white/10 lg:px-10 lg:py-12"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -103,9 +105,9 @@ export default function AuthLayout({
               </div>
             </div>
           </div>
-        </motion.aside>
+        </Motion.aside>
 
-        <motion.div
+        <Motion.div
           className="flex min-w-0 items-center justify-center px-4 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -132,7 +134,7 @@ export default function AuthLayout({
 
             {footer && <div className="mt-6 w-full">{footer}</div>}
           </div>
-        </motion.div>
+        </Motion.div>
       </div>
     </section>
   )

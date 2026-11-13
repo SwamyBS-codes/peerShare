@@ -7,9 +7,11 @@ const { handleConnection } = require('./connectionHandler');
  * @returns {WebSocketServer}
  */
 function initWebSocketServer(server) {
+  console.log('[WS] Initializing WebSocket server...');
   const wss = new WebSocketServer({ server });
 
   wss.on('connection', (ws, req) => {
+    console.log('[WS] New WebSocket connection established.');
     handleConnection(ws, req);
   });
 

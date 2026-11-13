@@ -1,8 +1,11 @@
+/** Creates peer connections and processes their SDP and ICE negotiation. */
+/** Manages WebRTC peer connections and their signaling lifecycle. */
 export class ConnectionManager {
   constructor(service) {
     this.service = service
   }
 
+  /** Reuses or creates a peer connection, optionally starting the offer negotiation. */
   async ensurePeerConnection(peerId, initiator = false) {
     const { peers, iceServers, handlers, dataChannelHandler } = this.service
 
@@ -72,6 +75,7 @@ export class ConnectionManager {
     return pc
   }
 
+  /** Applies incoming SDP and ICE data, buffering candidates until SDP is ready. */
   async handleSignal(fromPeerId, data) {
     const { peers, handlers } = this.service
     const pc = await this.ensurePeerConnection(fromPeerId, false)

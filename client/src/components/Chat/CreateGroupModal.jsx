@@ -1,6 +1,8 @@
+/** Modal for naming a group and choosing which accepted contacts to include. */
 import React, { useMemo, useState } from 'react'
 import { IconClose, IconUsers } from '../icons/MessageIcons'
 
+/** Collects group details and submits the selected member handles. */
 export function CreateGroupModal({ open, onClose, acceptedFriends, onCreate, creating }) {
   const [name, setName] = useState('')
   const [selected, setSelected] = useState(() => new Set())
@@ -21,6 +23,7 @@ export function CreateGroupModal({ open, onClose, acceptedFriends, onCreate, cre
     })
   }
 
+  // Validates the form locally before passing the group details to the parent.
   const submit = async (e) => {
     e.preventDefault()
     if (!name.trim() || selected.size < 1) return

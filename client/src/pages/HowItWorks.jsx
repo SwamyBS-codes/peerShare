@@ -1,3 +1,4 @@
+/** Explains the signaling, peer connection, and data-transfer flow. */
 const steps = [
   ['Connect', 'A small signaling service helps two browsers discover each other and swap connection details.'],
   ['Find a route', 'WebRTC uses STUN to pick the most direct path, even across different networks.'],
@@ -5,6 +6,7 @@ const steps = [
   ['Share smoothly', 'Large files stream in chunks so the tab stays responsive end to end.'],
 ]
 
+/** Presents the peer-to-peer connection process as a sequence of steps. */
 export default function HowItWorks() {
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">

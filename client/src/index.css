@@ -1,3 +1,4 @@
+/* Global Tailwind layers and shared styles for the app, chat, and authentication layouts. */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

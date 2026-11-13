@@ -1,7 +1,9 @@
+/** File exchange panel for an established share-link peer session. */
 import React, { useRef } from 'react'
 import { FileTransferOverlay } from './FileTransferOverlay'
 import { IconClose, IconFile, IconLinkShare } from '../icons/MessageIcons'
 
+/** Provides file selection, transfer status, and downloads for a link session. */
 export function LinkSharePanel({
   session,
   onClose,

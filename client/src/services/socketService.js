@@ -1,3 +1,5 @@
+/** Wraps the signaling WebSocket with message handling and bounded reconnects. */
+/** Owns a signaling socket and its retry state for a single peer session. */
 export class SocketService {
   constructor({ maxRetries = 3, retryDelayMs = 1500 } = {}) {
     this.maxRetries = maxRetries
@@ -8,12 +10,14 @@ export class SocketService {
     this.closedManually = false
   }
 
+  /** Saves connection callbacks and starts opening the configured socket. */
   connect(config) {
     this.config = config
     this.closedManually = false
     this.#open()
   }
 
+  /** Opens a socket and binds configured callbacks, retrying after unexpected closes. */
   #open() {
     if (!this.config) return
 
@@ -77,6 +81,7 @@ export class SocketService {
     }
   }
 
+  /** Sends a signaling payload when the WebSocket is open. */
   sendSignal(targetPeerId, data) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
 
@@ -89,6 +94,7 @@ export class SocketService {
     )
   }
 
+  /** Closes the socket and disables automatic reconnect attempts. */
   close() {
     this.closedManually = true
     if (this.ws) {

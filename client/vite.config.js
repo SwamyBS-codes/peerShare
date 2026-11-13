@@ -1,21 +1,27 @@
-import { defineConfig } from 'vite'
+// Configures the React development/build pipeline and routes API calls to the selected backend.
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
-const BACKEND_URL = 'https://peershare-signalling.duckdns.org';
+export default defineConfig(({ mode }) => {
+  // Use localhost during development and the deployed backend for production builds.
+  const { VITE_API_URL } = loadEnv(mode, '.', '')
+  const defaultBackendUrl = mode === 'development'
+    ? 'http://localhost:3001'
+    : 'https://peershare-signalling.duckdns.org'
+  const backendUrl = VITE_API_URL || defaultBackendUrl
 
-// const BACKEND_URL = 'http://localhost:3001';
-
-export default defineConfig({
-  plugins: [react()],
-  define: {
-    __BACKEND_URL__: JSON.stringify(BACKEND_URL),
-  },
-  server: {
-    proxy: {
-      '/api': {
-        target: BACKEND_URL,
-        changeOrigin: true,
+  return {
+    plugins: [react()],
+    define: {
+      __BACKEND_URL__: JSON.stringify(backendUrl),
+    },
+    server: {
+      proxy: {
+        '/api': {
+          target: backendUrl,
+          changeOrigin: true,
+        }
       }
     }
   }

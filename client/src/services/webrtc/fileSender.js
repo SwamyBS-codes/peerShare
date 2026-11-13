@@ -1,3 +1,4 @@
+/** Sends files to peers with worker-based chunking and adaptive data-channel scheduling. */
 import {
   DEFAULT_CHUNK_SIZE,
   CHANNEL_WAIT_TIMEOUT_MS,
@@ -7,6 +8,8 @@ import {
   normalizeChunkSize
 } from './helpers'
 
+/** Schedules chunked file transfers and adapts channel use to network feedback. */
+/** Sends files to a connected peer using worker-based chunking and acknowledgements. */
 export class FileSender {
   constructor(service) {
     this.service = service
@@ -15,6 +18,7 @@ export class FileSender {
     this.activeTransferId = null
   }
 
+  /** Negotiates file metadata, streams chunks, and reports transfer progress/results. */
   async sendFiles(
     peerId,
     files,
@@ -411,6 +415,7 @@ export class FileSender {
     })
   }
 
+  /** Waits for the receiver's resume offset, defaulting to zero after the timeout. */
   waitForFileAck(fileId, timeoutMs) {
     const { fileAckBytes, pendingAckResolvers } = this.service
     const known = fileAckBytes.get(fileId)
@@ -432,6 +437,7 @@ export class FileSender {
     })
   }
 
+  /** Waits until a peer's control channel opens or rejects after the timeout. */
   waitForOpenDataChannel(peerId, timeoutMs) {
     const { peers } = this.service
     const state = peers.get(peerId)

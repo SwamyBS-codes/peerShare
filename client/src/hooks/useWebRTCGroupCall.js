@@ -1,5 +1,7 @@
+/** Coordinates group-call media streams, peer connections, and signaling. */
 import { useRef, useState, useEffect } from 'react'
 
+/** Manages the local and remote state and lifecycle of a WebRTC group call. */
 export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
   const [activeGroupCall, setActiveGroupCall] = useState(null)
   const [localStream, setLocalStream] = useState(null)
@@ -109,6 +111,7 @@ export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
     return pc
   }
 
+  /** Captures local media and invites the other members of the selected group. */
   const startGroupCall = async (group, callMode = 'video') => {
     if (!group?.members?.length) {
       toast.error('Group has no members.')
@@ -159,12 +162,13 @@ export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
     toast.success('Invites sent to group.', { id: 'group-call' })
   }
 
+  /** Captures local media and notifies the host that this peer joined the call. */
   const acceptGroupCall = async (invite) => {
     try {
       const stream = await getMedia(invite.mediaType || 'video')
       localStreamRef.current = stream
       setLocalStream(stream)
-    } catch (err) {
+    } catch {
       toast.error('Could not access microphone/camera.')
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(
@@ -224,6 +228,7 @@ export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
     sendGroupSignal(guestUserId, groupId, { sdp: offer })
   }
 
+  /** Applies group-call SDP, ICE candidates, and remote hangup signals. */
   const handleGroupSignaling = async (fromUserId, groupId, data) => {
     const call = activeGroupCallRef.current
     if (!call || call.groupId !== groupId) return
@@ -263,6 +268,7 @@ export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
     }
   }
 
+  /** Starts a peer connection when a guest accepts the host's group-call invite. */
   const handleGroupCallResponse = async (fromUserId, groupId, accepted) => {
     const call = activeGroupCallRef.current
     if (!call || call.role !== 'host' || call.groupId !== groupId) return
@@ -294,5 +300,6 @@ export function useWebRTCGroupCall({ wsRef, toast, iceServers, currentUser }) {
     handleGroupSignaling,
     handleGroupCallResponse,
     cleanupGroupCall,
+    toggleMic,
   }
 }

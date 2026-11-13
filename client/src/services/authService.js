@@ -1,3 +1,4 @@
+/** Centralizes client authentication requests, token persistence, and authorized fetches. */
 // eslint-disable-next-line no-undef
 export const API_URL = typeof __BACKEND_URL__ !== 'undefined' ? __BACKEND_URL__ : (import.meta.env.VITE_API_URL || '');
 
@@ -15,18 +16,19 @@ export function parseJwt(token) {
         .join('')
     )
     return JSON.parse(jsonPayload)
-  } catch (e) {
+  } catch {
     return null
   }
 }
 
+/** Parses API responses and reports a useful error when the body is not JSON. */
 async function parseJsonResponse(response) {
   const raw = await response.text()
   if (!raw) return {}
 
   try {
     return JSON.parse(raw)
-  } catch (error) {
+  } catch {
     const message = raw.includes('Cannot GET /api/auth')
       ? 'The backend reset endpoint is not available. Please redeploy the server with the latest auth routes.'
       : 'The server responded with an unexpected non-JSON response.'
@@ -36,6 +38,7 @@ async function parseJsonResponse(response) {
 
 const TOKEN_KEY = 'peershare_token'
 
+/** Stores a token in the browser storage selected by the user's session preference. */
 function persistToken(token) {
   const sessionOnly = sessionStorage.getItem('peershare_session_only') === '1'
   localStorage.removeItem(TOKEN_KEY)
@@ -48,6 +51,7 @@ function persistToken(token) {
 }
 
 
+/** Authentication API and session helpers used throughout the client. */
 export const authService = {
   /**
    * Request OTP code for a new account signup
@@ -99,6 +103,7 @@ export const authService = {
     return data
   },
 
+  /** Requests a password-reset code for the supplied email address. */
   async requestPasswordReset(email) {
     const res = await fetch(`${API_URL}/api/auth/forgot-password-request`, {
       method: 'POST',
@@ -110,6 +115,7 @@ export const authService = {
     return data
   },
 
+  /** Verifies the reset code and updates the account password. */
   async resetPassword(email, otp, password) {
     const res = await fetch(`${API_URL}/api/auth/reset-password`, {
       method: 'POST',
@@ -129,10 +135,12 @@ export const authService = {
     sessionStorage.removeItem(TOKEN_KEY)
   },
 
+  /** Persists a refreshed token using the current storage preference. */
   persistTokenFromSettings(token) {
     if (token) persistToken(token)
   },
 
+  /** Loads the current user's profile using the authenticated API helper. */
   async fetchMyProfile() {
     const res = await this.fetchAuth('/api/users/me')
     const data = await parseJsonResponse(res)

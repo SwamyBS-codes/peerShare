@@ -1,9 +1,11 @@
 // IndexedDB store for transfer resume progress metadata
+/** Stores resumable transfer metadata and received-block maps in IndexedDB. */
 export class ResumeStore {
   constructor() {
     this.db = null
   }
 
+  /** Opens the resume database and creates its transfer store on first use. */
   async init() {
     if (this.db) return
     return new Promise((resolve, reject) => {
@@ -86,6 +88,7 @@ export class ResumeStore {
     })
   }
 
+  /** Deletes saved transfer records older than the configured retention period. */
   async pruneOldTransfers(maxAgeMs = 7 * 24 * 60 * 60 * 1000) { // Default 7 days
     await this.init()
     return new Promise((resolve, reject) => {

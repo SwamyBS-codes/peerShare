@@ -1,3 +1,4 @@
+/** Full-screen one-to-one call view with local preview and call controls. */
 import React from 'react'
 import { IconClose, IconMic, IconVideo } from '../icons/MessageIcons'
 
@@ -21,6 +22,7 @@ function ControlButton({ title, onClick, active, danger, children }) {
   )
 }
 
+/** Attaches call streams to media elements and renders the current call state. */
 export function VideoCallOverlay({
   activeCall,
   localStream,

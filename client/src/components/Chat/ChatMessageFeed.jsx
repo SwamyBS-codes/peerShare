@@ -1,3 +1,4 @@
+/** Conversation view with message history, call controls, and the message composer. */
 import React from 'react'
 import { motion as Motion, AnimatePresence } from 'framer-motion'
 import EmojiPicker from 'emoji-picker-react'
@@ -19,6 +20,7 @@ import {
   IconVideo,
 } from '../icons/MessageIcons'
 
+/** Renders the selected chat and manages local composer, emoji, and voice-note state. */
 export function ChatMessageFeed({
   darkMode = true,
   selectedFriend,
@@ -89,6 +91,7 @@ export function ChatMessageFeed({
     return () => window.clearInterval(intervalId)
   }, [isRecordingVoice])
 
+  // Inserts an emoji at the current selection and restores the input caret.
   const insertAtCursor = (emoji) => {
     const input = messageInputRef.current
     if (!input) {
@@ -111,6 +114,7 @@ export function ChatMessageFeed({
     })
   }
 
+  // Releases a draft's object URL before clearing it from the composer.
   const deleteVoiceDraft = () => {
     if (voiceDraft?.audioUrl) {
       URL.revokeObjectURL(voiceDraft.audioUrl)
@@ -118,6 +122,7 @@ export function ChatMessageFeed({
     setVoiceDraft(null)
   }
 
+  // Sends the recorded blob through the parent handler and releases its preview URL.
   const sendVoiceDraft = async () => {
     if (!voiceDraft || !handleSendVoiceNote) return
 
@@ -125,6 +130,7 @@ export function ChatMessageFeed({
     deleteVoiceDraft()
   }
 
+  // Stops microphone capture and turns the recorded chunks into a sendable draft.
   const stopVoiceRecording = async () => {
     if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') {
       setIsRecordingVoice(false)
@@ -156,6 +162,7 @@ export function ChatMessageFeed({
     mediaRecorderRef.current = null
   }
 
+  // Requests microphone access and starts collecting voice-note audio.
   const startVoiceRecording = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return
@@ -180,6 +187,7 @@ export function ChatMessageFeed({
     }
   }
 
+  // Starts or stops recording, discarding an earlier unsent draft when needed.
   const toggleVoiceRecording = async () => {
     if (isRecordingVoice) {
       await stopVoiceRecording()

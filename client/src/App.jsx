@@ -1,3 +1,4 @@
+// Defines PeerShare's routes, authentication-aware page shell, and theme state.
 import { useEffect, useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router-dom'
@@ -11,6 +12,7 @@ import ChatHub from './pages/ChatHub'
 import LinkConnectPage from './pages/LinkConnectPage'
 import { authService } from './services/authService'
 
+// Renders the active route inside the layout appropriate for that page.
 function AppContent({ darkMode, setDarkMode, currentUser }) {
   const location = useLocation()
   const isAuthRoute = ['/login', '/register'].includes(location.pathname)
@@ -68,6 +70,7 @@ function AppContent({ darkMode, setDarkMode, currentUser }) {
   )
 }
 
+// Restores theme and authentication state, then shares them across the app.
 function App() {
   const [darkMode, setDarkMode] = useState(() => {
     const persisted = localStorage.getItem('peershare-theme')
@@ -77,6 +80,7 @@ function App() {
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser())
 
   useEffect(() => {
+    // Keep the browser theme class, persisted preference, and browser chrome in sync.
     const root = document.documentElement
     root.classList.toggle('dark', darkMode)
     localStorage.setItem('peershare-theme', darkMode ? 'dark' : 'light')
@@ -84,6 +88,7 @@ function App() {
   }, [darkMode])
 
   useEffect(() => {
+    // Refresh the routed user's session whenever authentication changes elsewhere.
     const handleAuth = () => {
       setCurrentUser(authService.getCurrentUser())
     }

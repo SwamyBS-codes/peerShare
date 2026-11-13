@@ -1,12 +1,15 @@
+/** Avatar image or deterministic initials fallback with an optional presence dot. */
 import React from 'react'
 
-export const avatarHue = (seed = '') => {
+// Gives each user a stable fallback avatar color based on their handle.
+const avatarHue = (seed = '') => {
   let hash = 0
   for (let i = 0; i < seed.length; i += 1) hash = seed.charCodeAt(i) + ((hash << 5) - hash)
   const hues = [168, 199, 142, 262, 24, 340]
   return hues[Math.abs(hash) % hues.length]
 }
 
+/** Renders a profile image or colored initials at the requested size. */
 export function UserAvatar({ userId, avatarUrl, online, size = 'md', className = '' }) {
   const hue = avatarHue(userId || 'x')
   const dim =

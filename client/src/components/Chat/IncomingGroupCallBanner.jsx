@@ -1,6 +1,8 @@
+/** Banner prompting the user to join or decline an incoming group call. */
 import React from 'react'
 import { IconPhone, IconVideo } from '../icons/MessageIcons'
 
+/** Shows the group-call invitation only while an invite is pending. */
 export function IncomingGroupCallBanner({ invite, onAccept, onDecline }) {
   if (!invite) return null
 

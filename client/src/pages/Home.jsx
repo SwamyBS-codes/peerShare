@@ -1,6 +1,8 @@
+/** Landing page introducing PeerShare's direct browser-to-browser file sharing. */
 import { Link } from 'react-router-dom'
 import BrandMark from '../components/BrandMark'
 
+/** Illustrates a file moving between sender and receiver devices. */
 function P2PVisualizer() {
   return (
     <div className="relative w-full aspect-[4/3] rounded-[24px] bg-slate-950/60 border border-slate-850/50 overflow-hidden flex flex-col items-center justify-center p-4 shadow-inner">
@@ -132,6 +134,7 @@ function P2PVisualizer() {
   )
 }
 
+/** Shows the product's core transfer pitch and a P2P connection illustration. */
 export default function Home() {
   return (
     <section className="mx-auto grid w-full max-w-6xl items-center gap-16 px-6 py-8 md:grid-cols-2 lg:px-8 relative z-10">

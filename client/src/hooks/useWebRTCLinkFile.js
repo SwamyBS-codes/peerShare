@@ -1,5 +1,7 @@
+/** Manages file transfers over WebRTC for temporary link-based sessions. */
 import { useRef, useState } from 'react';
 
+/** Exposes link-session file sending, receiving, cancellation, and signaling handlers. */
 export function useWebRTCLinkFile({ wsRef, toast, iceServers }) {
   const [transferState, setTransferState] = useState(null);
   const [transferProgress, setTransferProgress] = useState(0);
@@ -84,6 +86,7 @@ export function useWebRTCLinkFile({ wsRef, toast, iceServers }) {
     }, 1200);
   };
 
+  /** Creates or reuses the file peer connection and negotiates its data channel. */
   const ensurePeerConnection = async (isInitiator) => {
     if (filePcRef.current) return filePcRef.current;
 
@@ -164,6 +167,7 @@ export function useWebRTCLinkFile({ wsRef, toast, iceServers }) {
     };
   };
 
+  /** Streams file slices and updates transfer progress as the channel drains. */
   const streamFileChunks = (channel, file) => {
     const chunkSize = 16 * 1024;
     const reader = new FileReader();
@@ -282,6 +286,7 @@ export function useWebRTCLinkFile({ wsRef, toast, iceServers }) {
     };
   };
 
+  /** Applies link-session SDP and ICE messages, buffering early candidates. */
   const handleLinkFileSignaling = async (_fromUserId, data) => {
     try {
       let pc = filePcRef.current;

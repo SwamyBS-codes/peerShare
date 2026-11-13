@@ -1,3 +1,4 @@
+/** Responsive site navigation with authentication links and theme controls. */
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { authService } from '../services/authService'
@@ -25,6 +26,7 @@ function ThemeButton({ darkMode, onToggle }) {
   )
 }
 
+/** Tracks authentication changes and renders desktop and mobile navigation. */
 export default function Navbar({ darkMode, onToggleDarkMode }) {
   const [open, setOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser())
@@ -40,6 +42,7 @@ export default function Navbar({ darkMode, onToggleDarkMode }) {
     }
   }, [])
 
+  // Signs out, broadcasts the auth change, and returns to the login page.
   const logout = () => {
     authService.logout()
     window.dispatchEvent(new Event('auth-change'))

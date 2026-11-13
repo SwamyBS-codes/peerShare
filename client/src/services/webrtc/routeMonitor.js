@@ -1,8 +1,11 @@
+/** Reports whether a peer connection currently uses a direct or relayed route. */
+/** Monitors selected ICE candidate pairs and reports their route type. */
 export class RouteMonitor {
   constructor(service) {
     this.service = service
   }
 
+  /** Reads peer connection stats to determine whether traffic uses a relay. */
   async detectRouteType(peerId) {
     const { peers, handlers } = this.service
     const state = peers.get(peerId)
@@ -39,6 +42,7 @@ export class RouteMonitor {
     handlers.onRouteType?.(peerId, usesRelay ? 'relay' : 'direct')
   }
 
+  /** Starts periodic route checks for the specified peer. */
   startRouteMonitor(peerId) {
     const { routeTimers, handlers } = this.service
     this.stopRouteMonitor(peerId)

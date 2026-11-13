@@ -1,3 +1,4 @@
+/** Composes the WebRTC connection, data-channel, route, and file-transfer services. */
 import { ConnectionManager } from './connectionManager'
 import { DataChannelHandler } from './dataChannelHandler'
 import { FileSender } from './fileSender'
@@ -6,6 +7,7 @@ import { DEFAULT_CHUNK_SIZE } from './helpers'
 
 export { DEFAULT_CHUNK_SIZE } from './helpers'
 
+/** Public facade for peer connections, signaling, data channels, and file sending. */
 export class WebRTCService {
   constructor(iceServers) {
     this.iceServers = iceServers
@@ -43,6 +45,7 @@ export class WebRTCService {
     return this.connectionManager.handleSignal(fromPeerId, data)
   }
 
+  /** Delegates a file transfer to the sender for the selected peer. */
   async sendFiles(
     peerId,
     files,
@@ -74,6 +77,7 @@ export class WebRTCService {
     state.channel.send(JSON.stringify(payload))
   }
 
+  /** Stops route monitoring and closes all active peer connections. */
   closeAll() {
     this.routeMonitor.stopAllRouteMonitors()
     for (const { pc, channel } of this.peers.values()) {

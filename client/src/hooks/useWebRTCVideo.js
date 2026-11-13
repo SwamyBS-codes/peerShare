@@ -1,6 +1,8 @@
+/** Manages one-to-one audio/video calls, media controls, and WebRTC signaling. */
 import { useState, useRef, useEffect } from 'react';
 import { authService } from '../services/authService';
 
+/** Provides call state and actions for starting, answering, and ending peer calls. */
 export function useWebRTCVideo({
   wsRef,
   setMessages,
@@ -67,6 +69,7 @@ export function useWebRTCVideo({
     }
   };
 
+  /** Replaces the active video track with one from the requested camera. */
   const switchCameraFacingMode = async (nextFacingMode) => {
     if (!localStreamRef.current || !navigator.mediaDevices?.getUserMedia) return;
 
@@ -113,6 +116,7 @@ export function useWebRTCVideo({
 
   const toggleSpeaker = () => setSpeakerMuted((muted) => !muted);
 
+  /** Notifies the other peer and releases local call resources. */
   const endCall = () => {
     const currentActiveCall = activeCallRef.current || activeCall;
     if (currentActiveCall && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -126,6 +130,7 @@ export function useWebRTCVideo({
     toast.success('Call ended.');
   };
 
+  /** Closes media and peer resources and persists the call's final activity status. */
   const cleanupCall = () => {
     toast.dismiss('call');
     clearInviteExpiry();
@@ -203,6 +208,7 @@ export function useWebRTCVideo({
     videoPendingCandidatesRef.current = [];
   };
 
+  /** Creates a pending call activity, invites the peer, and expires unanswered invites. */
   const sendCallInvite = async (inviteMsg = 'Incoming Video Call', callMode = 'video') => {
     const friend = selectedFriendRef.current;
     if (!friend) {
@@ -291,6 +297,7 @@ export function useWebRTCVideo({
     }
   };
 
+  /** Captures the requested media and accepts or declines the pending call invite. */
   const answerCall = async (targetUserId, callMode = 'video') => {
     clearInviteExpiry();
     callModeRef.current = callMode;
@@ -325,6 +332,7 @@ export function useWebRTCVideo({
     }
   };
 
+  /** Builds the caller's peer connection and sends its SDP offer to the selected peer. */
   const initiateWebRTCCall = async (targetUserId) => {
     try {
       // Ensure activeCall is set in case state was lost (e.g. browser reload)
@@ -385,6 +393,7 @@ export function useWebRTCVideo({
     }
   };
 
+  /** Handles call activity updates, hangups, SDP negotiation, and queued ICE candidates. */
   const handleVideoSignaling = async (fromUserId, data) => {
     try {
       if (data.type === 'activity-sync') {

@@ -1,6 +1,8 @@
+/** Delivery-status indicators and timestamp row used in message bubbles. */
 import { IconAlert, IconCheck } from '../icons/MessageIcons'
 import { getDeliveryStatus } from '../../utils/messageDelivery'
 
+/** Maps a message's delivery state to its corresponding status icon. */
 export function MessageStatusTicks({ message, isMe, className = '' }) {
   if (!isMe) return null
 
@@ -34,6 +36,7 @@ export function MessageStatusTicks({ message, isMe, className = '' }) {
   )
 }
 
+/** Displays a message timestamp, any send error, and delivery status. */
 export function MessageMetaRow({ time, message, isMe }) {
   return (
     <div className="mt-1 flex items-center justify-end gap-1 whitespace-nowrap text-[11px] leading-none text-chat-muted dark:text-chat-mutedDark">

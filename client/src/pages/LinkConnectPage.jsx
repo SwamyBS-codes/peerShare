@@ -1,3 +1,4 @@
+/** Share-link landing page that joins a peer session and enables file exchange. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -14,6 +15,7 @@ const iceServers = {
   ],
 }
 
+/** Validates the invite, joins signaling, and exposes the session's file panel. */
 export default function LinkConnectPage() {
   const { code } = useParams()
   const navigate = useNavigate()
@@ -84,6 +86,7 @@ export default function LinkConnectPage() {
     }
   }, [linkSession, setSession])
 
+  // Requests entry to the normalized link through the open signaling socket.
   const connect = () => {
     if (!normalizedCode) return
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -95,6 +98,7 @@ export default function LinkConnectPage() {
     wsRef.current.send(JSON.stringify({ type: 'link-join', code: normalizedCode }))
   }
 
+  // Cleans up transfer resources before returning to the chat hub.
   const closeSession = () => {
     cleanupTransfer()
     setLinkSession(null)

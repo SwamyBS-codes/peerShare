@@ -1,7 +1,9 @@
+/** Dialog for creating, sharing, and monitoring a direct file-exchange link. */
 import React, { useEffect, useMemo, useState } from 'react'
 import QRCodeGenerator from '../QRCodeGenerator'
 import { IconClose, IconLinkShare } from '../icons/MessageIcons'
 
+/** Creates the share URL and closes an unused link session when dismissed. */
 export function ShareLinkModal({ open, onClose, wsRef, linkCode, waiting, connectedPeer, onEndLink }) {
   const [copied, setCopied] = useState(false)
 
@@ -10,10 +12,6 @@ export function ShareLinkModal({ open, onClose, wsRef, linkCode, waiting, connec
     const base = window.location.origin
     return `${base}/link/${linkCode}`
   }, [linkCode])
-
-  useEffect(() => {
-    if (!open) setCopied(false)
-  }, [open])
 
   useEffect(() => {
     if (!open || linkCode || !wsRef?.current || wsRef.current.readyState !== WebSocket.OPEN) return
@@ -31,7 +29,9 @@ export function ShareLinkModal({ open, onClose, wsRef, linkCode, waiting, connec
     }
   }
 
+  // Ends an unconnected link before dismissing the modal.
   const handleClose = () => {
+    setCopied(false)
     if (!connectedPeer && linkCode && wsRef?.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'link-close', code: linkCode }))
       onEndLink?.()

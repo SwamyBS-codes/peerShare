@@ -1,3 +1,4 @@
+/** Multi-file picker and drop target that maintains a removable send queue. */
 import { useRef, useState } from 'react'
 
 function formatSize(bytes) {
@@ -12,10 +13,12 @@ function formatSize(bytes) {
   return `${size.toFixed(unitIndex === 0 ? 0 : 2)} ${units[unitIndex]}`
 }
 
+/** Lets users add files by browsing or dropping them into the transfer queue. */
 export default function DropZone({ files, onFilesSelected, maxFileSizeBytes = Number.POSITIVE_INFINITY }) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
 
+  // Appends newly selected files while filtering out files above the size limit.
   const handleSelection = (list) => {
     const incoming = [...list]
     const hasLimit = Number.isFinite(maxFileSizeBytes) && maxFileSizeBytes > 0

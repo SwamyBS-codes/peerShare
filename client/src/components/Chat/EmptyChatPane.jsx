@@ -1,3 +1,5 @@
+/** Welcome panel shown when no conversation is currently selected. */
+import { createElement } from 'react'
 import BrandMark from '../BrandMark'
 import { IconFile, IconLock, IconMic, IconVideo } from '../icons/MessageIcons'
 
@@ -24,6 +26,7 @@ const features = [
   },
 ]
 
+/** Introduces PeerShare and highlights its main chat and transfer features. */
 export function EmptyChatPane() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-ps-pane-light dark:bg-ps-pane">
@@ -44,13 +47,13 @@ export function EmptyChatPane() {
         </div>
 
         <div className="grid flex-[1.2] grid-cols-1 gap-3 border-t border-chat-border/80 p-6 dark:border-chat-borderDark/80 sm:grid-cols-2 sm:p-8 lg:border-l lg:border-t-0 lg:content-center lg:p-10">
-          {features.map(({ icon: Icon, title, text }) => (
+          {features.map(({ icon, title, text }) => (
             <article
               key={title}
               className="rounded-2xl border border-chat-border/60 bg-white/70 p-5 backdrop-blur-sm dark:border-chat-borderDark/80 dark:bg-white/[0.04]"
             >
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-ps-brand text-white shadow-md shadow-indigo-500/20">
-                <Icon className="h-5 w-5" />
+                {createElement(icon, { className: 'h-5 w-5' })}
               </span>
               <h3 className="mt-3 text-sm font-semibold text-slate-800 dark:text-[#e8eaef]">{title}</h3>
               <p className="mt-1.5 text-xs leading-relaxed text-chat-muted dark:text-chat-mutedDark">{text}</p>

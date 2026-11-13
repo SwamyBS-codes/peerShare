@@ -1,4 +1,5 @@
-import { motion, AnimatePresence } from 'framer-motion'
+/** Registration page for account details and email-code verification. */
+import { AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -8,6 +9,7 @@ import { authService } from '../services/authService'
 const strengthLabels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent']
 const strengthColors = ['bg-rose-500', 'bg-orange-500', 'bg-amber-500', 'bg-emerald-500', 'bg-chat-accentLight']
 
+// Scores a password using length and character variety for the strength meter.
 function getPasswordStrength(password) {
   if (!password) return { score: 0, label: 'No password' }
 
@@ -23,6 +25,7 @@ function getPasswordStrength(password) {
 
 const USER_ID_PATTERN = /^[a-zA-Z0-9_]{3,30}$/
 
+/** Validates account details, requests an email code, and completes signup. */
 export default function Register() {
   const [form, setForm] = useState({
     username: '',
@@ -55,6 +58,7 @@ export default function Register() {
     setForm((current) => ({ ...current, [name]: value }))
   }
 
+  // Checks the account fields before requesting an email verification code.
   const validateStepOne = () => {
     if (!form.username || !form.email || !form.password || !form.confirmPassword) {
       toast.error('Please complete all fields.')
@@ -79,6 +83,7 @@ export default function Register() {
     return true
   }
 
+  // Starts email verification after the first registration step is valid.
   const requestCode = async (event) => {
     event?.preventDefault()
     if (!validateStepOne()) return
@@ -97,6 +102,7 @@ export default function Register() {
     }
   }
 
+  // Verifies the submitted code and creates the account on success.
   const verify = async (event) => {
     event.preventDefault()
 

@@ -1,5 +1,7 @@
+/** Styled QR-code rendering for a shareable URL. */
 import { QRCodeCanvas } from 'qrcode.react'
 
+/** Displays a QR code when a value is available. */
 export default function QRCodeGenerator({ value }) {
   if (!value) return null
 
