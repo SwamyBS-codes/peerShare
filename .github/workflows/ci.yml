@@ -174,5 +174,8 @@ jobs:
   deploy-backend:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changed-files.outputs.server == 'true'
     needs: [changed-files, client-checks, server-checks, e2e-tests]
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/deploy.yml
     secrets: inherit
