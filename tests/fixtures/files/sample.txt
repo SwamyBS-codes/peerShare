@@ -1,0 +1,2 @@
+PeerShare deterministic file-transfer fixture.
+This fixture is delivered over an actual WebRTC DataChannel in the browser tests.

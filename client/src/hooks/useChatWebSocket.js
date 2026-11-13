@@ -1,7 +1,9 @@
+/** Maintains the authenticated chat socket and routes signaling, presence, and invite events. */
 import { useEffect, useRef, useState } from 'react';
 import { authService } from '../services/authService';
 import { mergeDeliveryMetadata } from '../utils/messageDelivery';
 
+/** Keeps the chat connection alive and dispatches incoming events through the latest handlers. */
 export function useChatWebSocket({
   wsRef,
   currentUser,
@@ -58,33 +60,31 @@ export function useChatWebSocket({
     linkEventsRef,
   });
 
-  useEffect(() => {
-    hRef.current = {
-      handleVideoSignaling,
-      handleFileSignaling,
-      handleGroupSignaling,
-      handleGroupCallResponse,
-      cleanupCall,
-      cleanupGroupCall,
-      cleanupFileTransfer,
-      initiateWebRTCCall,
-      initiateFileWebRTCConnection,
-      selectedFriendRef,
-      receiverInviteIdRef,
-      currentFileRef,
-      setTransferState,
-      setFriends,
-      setMessages,
-      setUnreadCounts,
-      toast,
-      currentUser,
-      activeCallRef,
-      clearInviteExpiry,
-      setIncomingGroupCall,
-      setIncomingPeerInvite,
-      linkEventsRef,
-    };
-  });
+  hRef.current = {
+    handleVideoSignaling,
+    handleFileSignaling,
+    handleGroupSignaling,
+    handleGroupCallResponse,
+    cleanupCall,
+    cleanupGroupCall,
+    cleanupFileTransfer,
+    initiateWebRTCCall,
+    initiateFileWebRTCConnection,
+    selectedFriendRef,
+    receiverInviteIdRef,
+    currentFileRef,
+    setTransferState,
+    setFriends,
+    setMessages,
+    setUnreadCounts,
+    toast,
+    currentUser,
+    activeCallRef,
+    clearInviteExpiry,
+    setIncomingGroupCall,
+    setIncomingPeerInvite,
+    linkEventsRef,
+  };
 
   useEffect(() => {
     // No audio autoplay for calls; keep the app quiet unless the user explicitly interacts.
@@ -94,7 +94,7 @@ export function useChatWebSocket({
     let wsUrl = '';
     // eslint-disable-next-line no-undef
     const backendUrl = typeof __BACKEND_URL__ !== 'undefined' ? __BACKEND_URL__ : import.meta.env.VITE_API_URL;
-    
+    console.log('Backend URL:', backendUrl);
     if (backendUrl) {
       try {
         const urlObj = new URL(backendUrl);
@@ -161,13 +161,18 @@ export function useChatWebSocket({
               const next = prev.map((f) => {
                 const cleanName = (f.friendUserId || '').trim().toLowerCase();
                 const nextStatus = Object.entries(msg.statuses || {}).find(([key]) => key.trim().toLowerCase() === cleanName)?.[1];
+                const nextLastSeen = Object.entries(msg.lastSeenAt || {}).find(([key]) => key.trim().toLowerCase() === cleanName)?.[1];
+                let updatedFriend = f;
 
                 if (nextStatus !== undefined && f.isOnline !== Boolean(nextStatus)) {
-                  hasChanges = true;
-                  return { ...f, isOnline: Boolean(nextStatus) };
+                  updatedFriend = { ...updatedFriend, isOnline: Boolean(nextStatus) };
+                }
+                if (nextLastSeen && f.lastSeenAt !== nextLastSeen) {
+                  updatedFriend = { ...updatedFriend, lastSeenAt: nextLastSeen };
                 }
 
-                return f;
+                if (updatedFriend !== f) hasChanges = true;
+                return updatedFriend;
               });
               return hasChanges ? next : prev;
             });
@@ -430,6 +435,7 @@ export function useChatWebSocket({
 
     return () => {
       isMounted = false;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (socket) socket.close();
       if (hRef.current.cleanupCall) {
          hRef.current.cleanupCall();
@@ -437,7 +443,7 @@ export function useChatWebSocket({
          hRef.current.cleanupGroupCall?.();
       }
     };
-  }, [friendsRef]);
+  }, [friendsRef, wsRef]);
 
   return {
     wsRef,

@@ -1,3 +1,4 @@
+/** Full-screen group-call view with local and remote participant media. */
 import React from 'react'
 import { IconClose, IconMic } from '../icons/MessageIcons'
 
@@ -21,6 +22,7 @@ function ControlButton({ title, onClick, active, danger, children }) {
   )
 }
 
+// Attaches a participant's stream to video and audio elements.
 function RemoteTile({ userId, stream, isVideo }) {
   const videoRef = React.useRef(null)
   const audioRef = React.useRef(null)
@@ -48,6 +50,7 @@ function RemoteTile({ userId, stream, isVideo }) {
   )
 }
 
+/** Renders group participants and the controls for muting or leaving the call. */
 export function GroupCallOverlay({
   activeGroupCall,
   localStream,

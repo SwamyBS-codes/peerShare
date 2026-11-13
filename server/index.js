@@ -12,4 +12,5 @@ initWebSocketServer(server);
 // Boot Server
 server.listen(PORT, () => {
   console.log(`Signaling server running on http://localhost:${PORT}`);
+  console.log(`WebSocket server running on ws://localhost:${PORT}`)
 });

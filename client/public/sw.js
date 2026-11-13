@@ -1,9 +1,12 @@
+// Caches same-origin assets and fonts for offline use, while removing stale app caches.
 const CACHE_NAME = 'peershare-cache-v1'
 
+// Activate this worker immediately so new clients use the current cache policy.
 self.addEventListener('install', () => {
   self.skipWaiting()
 })
 
+// Remove older cache versions and take control of existing tabs.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -18,6 +21,7 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// Cache successful GET responses and serve cached resources when the network is unavailable.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
 

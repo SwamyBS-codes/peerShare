@@ -1,3 +1,4 @@
+/** SVG chart of recent transfer throughput and its current speed. */
 import { useMemo } from 'react'
 
 function formatSpeed(bytesPerSec) {
@@ -8,6 +9,7 @@ function formatSpeed(bytesPerSec) {
   return parseFloat((bytesPerSec / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
+/** Scales the sampled speeds into a chart path and summary labels. */
 export default function ThroughputChart({ data = [], status = '' }) {
   const width = 500
   const height = 120

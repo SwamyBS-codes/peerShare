@@ -1,3 +1,4 @@
+// Manually drives a local browser session and prints browser or page errors for debugging.
 const { chromium } = require('playwright');
 
 (async () => {

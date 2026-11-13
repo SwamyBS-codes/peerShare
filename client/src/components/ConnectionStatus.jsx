@@ -1,3 +1,4 @@
+/** Small indicator for the current signaling connection state. */
 const tones = {
   connecting: {
     dot: 'bg-amber-500 shadow-amber-500/50',
@@ -17,6 +18,7 @@ const tones = {
   },
 }
 
+/** Displays a state-colored status marker and its accompanying message. */
 export default function ConnectionStatus({ state, message }) {
   const activeTone = tones[state] || tones.idle
 

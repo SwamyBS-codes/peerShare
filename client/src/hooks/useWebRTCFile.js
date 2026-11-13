@@ -1,12 +1,13 @@
+/** Manages one-to-one WebRTC file-transfer state, signaling, and chunk delivery. */
 import { useState, useRef } from 'react';
 import { authService } from '../services/authService';
 
+/** Provides the state and handlers for sending or receiving a file over WebRTC. */
 export function useWebRTCFile({
   wsRef,
   setMessages,
   toast,
   iceServers,
-  selectedFriendRef
 }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [transferProgress, setTransferProgress] = useState(0);
@@ -70,6 +71,7 @@ export function useWebRTCFile({
     setSelectedFile(null);
   };
 
+  /** Cancels the active transfer, records failure, and releases its connection state. */
   const cancelFileTransfer = async () => {
     fileTransferCancelledRef.current = true;
     if (fileChannelRef.current && fileChannelRef.current.readyState === 'open') {
@@ -141,6 +143,7 @@ export function useWebRTCFile({
     }
   };
 
+  /** Accepts a file invite, records its metadata, and starts the receiver connection. */
   const handleAcceptInlineFileInvite = (msgId, senderUserId, name, size, note) => {
     receiverInviteIdRef.current = msgId;
 
@@ -189,6 +192,7 @@ export function useWebRTCFile({
     );
   };
 
+  /** Creates the peer connection and negotiates the file data channel. */
   const initiateFileWebRTCConnection = async (targetUserId, isInitiator) => {
     try {
       fileTransferCancelledRef.current = false;
@@ -215,7 +219,7 @@ export function useWebRTCFile({
       if (isInitiator) {
         const channel = pc.createDataChannel('chat-file-transfer', { ordered: true });
         fileChannelRef.current = channel;
-        setupSenderDataChannel(channel, targetUserId);
+        setupSenderDataChannel(channel);
 
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -243,12 +247,12 @@ export function useWebRTCFile({
     }
   };
 
-  const setupSenderDataChannel = (channel, targetUserId) => {
+  const setupSenderDataChannel = (channel) => {
     channel.binaryType = 'arraybuffer';
 
     channel.onopen = () => {
       setTransferState('sending');
-      startSendingFileChunks(channel, targetUserId);
+      startSendingFileChunks(channel);
     };
 
     channel.onclose = () => {
@@ -267,7 +271,8 @@ export function useWebRTCFile({
     };
   };
 
-  const startSendingFileChunks = async (channel, targetUserId) => {
+  /** Streams file slices through the data channel while updating progress and completion. */
+  const startSendingFileChunks = async (channel) => {
     const file = currentFileRef.current;
     if (!file) {
       setTransferState('failed');
@@ -370,6 +375,7 @@ export function useWebRTCFile({
     readSlice(0);
   };
 
+  /** Collects incoming chunks and publishes a downloadable file when complete. */
   const setupReceiverDataChannel = (channel) => {
     channel.binaryType = 'arraybuffer';
     fileChunksRef.current = [];
@@ -460,6 +466,7 @@ export function useWebRTCFile({
     };
   };
 
+  /** Applies SDP and ICE signaling, queuing candidates until a remote description exists. */
   const handleFileSignaling = async (fromUserId, data) => {
     try {
       const pc = filePcRef.current;
@@ -470,7 +477,11 @@ export function useWebRTCFile({
 
             if (filePendingCandidatesRef.current && filePendingCandidatesRef.current.length > 0) {
               for (const cand of filePendingCandidatesRef.current) {
-                try { await pc.addIceCandidate(cand); } catch (e) { }
+                try {
+                  await pc.addIceCandidate(cand);
+                } catch (error) {
+                  console.error('[WebRTC File] Failed to apply queued ICE candidate:', error);
+                }
               }
               filePendingCandidatesRef.current = [];
             }
@@ -491,7 +502,11 @@ export function useWebRTCFile({
 
           if (filePendingCandidatesRef.current && filePendingCandidatesRef.current.length > 0) {
             for (const cand of filePendingCandidatesRef.current) {
-              try { await pc.addIceCandidate(cand); } catch (e) { }
+              try {
+                await pc.addIceCandidate(cand);
+              } catch (error) {
+                console.error('[WebRTC File] Failed to apply queued ICE candidate:', error);
+              }
             }
             filePendingCandidatesRef.current = [];
           }

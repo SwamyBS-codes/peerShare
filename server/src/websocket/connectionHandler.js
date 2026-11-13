@@ -34,7 +34,7 @@ function closeSocketWithError(ws, message, code = 1008) {
  * @param {string} userId User public handle
  * @param {boolean} isOnline
  */
-async function notifyFriendsPresence(id, userId, isOnline) {
+async function notifyFriendsPresence(id, userId, isOnline, lastSeenAt) {
   try {
     // Get all accepted friendships
     const friendships = await prisma.friendship.findMany({
@@ -58,7 +58,10 @@ async function notifyFriendsPresence(id, userId, isOnline) {
         // Send online status update
         sendJSON(friendWs, {
           type: 'status-update',
-          statuses: { [userId.toLowerCase()]: isOnline }
+          statuses: { [userId.toLowerCase()]: isOnline },
+          lastSeenAt: lastSeenAt
+            ? { [userId.toLowerCase()]: lastSeenAt.toISOString() }
+            : undefined
         });
       }
     });
@@ -133,10 +136,37 @@ async function handleConnection(ws, req) {
     switch (message.type) {
       // client checks which friends are online
       case 'check-status': {
-        const { friends } = message;
-        if (Array.isArray(friends)) {
+        if (Array.isArray(message.friends)) {
+          const friends = [...new Set(
+            message.friends
+              .filter((friend) => typeof friend === 'string' && friend.trim())
+              .map((friend) => friend.trim())
+          )];
           const statuses = getOnlineStatuses(friends);
-          sendJSON(ws, { type: 'status-update', statuses });
+          const offlineUsernames = Object.keys(statuses).filter((friend) => !statuses[friend]);
+          let lastSeenAt = {};
+
+          if (offlineUsernames.length > 0) {
+            try {
+              const offlineUsers = await prisma.user.findMany({
+                where: {
+                  userId: { in: offlineUsernames, mode: 'insensitive' }
+                },
+                select: { userId: true, lastSeenAt: true }
+              });
+              lastSeenAt = Object.fromEntries(
+                offlineUsers
+                  .filter((friend) => friend.lastSeenAt)
+                  .map((friend) => [friend.userId.toLowerCase(), friend.lastSeenAt.toISOString()])
+              );
+            } catch (err) {
+              console.error(`[WS] Error retrieving last-seen data for ${userId}:`, err);
+              sendJSON(ws, { type: 'error', message: 'Unable to refresh contact last-seen data.' });
+              break;
+            }
+          }
+
+          sendJSON(ws, { type: 'status-update', statuses, lastSeenAt });
         }
         break;
       }
@@ -313,13 +343,26 @@ async function handleConnection(ws, req) {
     }
   });
 
+  sendJSON(ws, { type: 'connection-ready' });
+
   // 4. Cleanup on disconnect
   ws.on('close', async () => {
     linkRooms.handleSocketDisconnect(ws, sendJSON);
     unregisterUser(ws);
     // Only broadcast offline status if the user has no active socket
     if (!getSocketByUsername(userId)) {
-      await notifyFriendsPresence(id, userId, false);
+      const lastSeenAt = new Date();
+      try {
+        await prisma.user.update({
+          where: { id },
+          data: { lastSeenAt }
+        });
+        console.log(`[WS] User ${userId} went offline. Last seen updated.`);
+      } catch (err) {
+        console.error(`[WS] Error updating last seen for ${userId}:`, err);
+      }
+      await notifyFriendsPresence(id, userId, false, lastSeenAt);
+      console.log(`lastseen: ${lastSeenAt.toISOString()}`);
     }
   });
 }

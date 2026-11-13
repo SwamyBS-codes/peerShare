@@ -15,6 +15,7 @@ This repository is a monorepo containing both the modular Express signaling back
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [Running the App](#running-the-app)
+- [Testing](#testing)
 - [Modules & Internals](#modules--internals)
 - [Authentication & Security](#authentication--security)
 - [Scripts Reference](#scripts-reference)
@@ -39,7 +40,7 @@ This repository is a monorepo containing both the modular Express signaling back
 
 | Area | Technology |
 | :--- | :--- |
-| **Runtime** | Node.js 18 or 20 (LTS) |
+| **Runtime** | Node.js 22.12+, 24.x, or 26+ |
 | **Frontend Framework** | React 19 (Vite, Tailwind CSS, React Router 7) |
 | **Backend Framework** | Express 5 + ws (WebSocket) |
 | **Auth / Cryptography** | Web Crypto API / Node `crypto` (HMAC SHA-256 Tokens) |
@@ -76,9 +77,10 @@ This repository is a monorepo containing both the modular Express signaling back
 
 ## Prerequisites
 
-- **Node.js** v18.x or v20.x and **npm** installed.
+- **Node.js** v22.12+, v24.x, or v26+ and **npm** installed.
 - Modern web browser with WebRTC and OPFS support (Chrome, Firefox, Safari, Edge).
 - Optional: TURN relay credentials if sharing across symmetric NAT/firewalled networks.
+- Docker Compose is required to run the local isolated PostgreSQL test database.
 
 ---
 
@@ -117,10 +119,10 @@ curl http://localhost:3001/
 | `SESSION_CLEANUP_MS` | no | `20000` (20s) | Lifecycle cleanup interval for expired sessions. |
 | `MAX_SIGNAL_PAYLOAD_BYTES` | no | `30720` (30KB) | Safety boundary for WebSocket frame size. |
 
-### Client Frontend (`client/src/pages/SendFile.jsx` & `ReceiveFile.jsx`)
+### Client Frontend (`client/vite.config.js`)
 | Variable | Required | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `VITE_SIGNALING_URL` | no | *Inferred from host* | WebSocket address for signaling. |
+| `VITE_API_URL` | no | `http://localhost:3001` in development; `https://peershare-signalling.duckdns.org` in production | Backend HTTP and WebSocket address. Set this to override the mode-specific default. |
 | `VITE_STUN_URL` | no | `stun:stun.l.google.com:19302` | Primary STUN server. |
 | `VITE_TURN_URL` | no | *Built-in relay* | TURN relay fallback server URI. |
 | `VITE_TURN_USERNAME` | no | *Built-in username* | Authentication username for TURN relay. |
@@ -148,6 +150,51 @@ npm run start        # Launches backend to serve client build and signaling
 # Or combine them:
 npm run prod
 ```
+
+---
+
+## Testing
+
+The test suite separates client/server unit tests, real-PostgreSQL HTTP/WebSocket integration tests, and Chromium end-to-end tests. Integration and E2E setup reject database URLs unless they use a password-free loopback PostgreSQL instance with `test` in its database name. Browser tests use two test-only accounts, fake Chromium camera/microphone devices, real WebSocket connections, and actual WebRTC peer connections.
+
+Install the package dependencies from their existing lockfiles:
+
+```bash
+npm ci
+npm ci --prefix client
+npm ci --prefix server
+```
+
+Run unit tests:
+
+```bash
+npm run test:unit
+```
+
+Start the isolated local PostgreSQL container and apply the existing Prisma migrations before integration tests:
+
+```bash
+npm run test:db:up
+export TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:55432/peershare_test?schema=public'
+export DATABASE_URL="$TEST_DATABASE_URL"
+npm --prefix server run test:db:migrate
+npm run test:integration
+```
+
+Seed test accounts and run the Playwright scenarios. Playwright starts and shuts down the API and Vite development server; it uses the test database URL above:
+
+```bash
+export E2E_TEST_PASSWORD="$(openssl rand -hex 24)"
+npm --prefix server run test:e2e:seed
+npm run test:e2e:install
+npm run test:e2e
+npm --prefix server run test:e2e:clean
+npm run test:db:down
+```
+
+Messaging tests verify live delivery and history after a page reload. File-transfer tests compare the downloaded bytes and SHA-256 digest. Video-call tests inspect RTCPeerConnection states and received audio/video tracks. HTML reports, traces, failure screenshots/videos, and service logs are retained under ignored output directories.
+
+GitHub Actions runs client checks, PostgreSQL-backed server checks, and browser tests as independent jobs. Backend deployment reuses the existing EC2 workflow only after all check jobs succeed on `main` and server files changed; client-only changes do not deploy the backend.
 
 ---
 
@@ -191,6 +238,10 @@ npm run prod
 | `npm run start` | Root | Starts the Node.js production server. |
 | `npm run prod` | Root | Sequential wrapper to build and start production server. |
 | `npm run lint` | Root | Runs ESLint syntax and style analysis on the client project. |
+| `npm run test:unit` | Root | Runs client and server unit tests. |
+| `npm run test:integration` | Root | Runs PostgreSQL-backed API and WebSocket integration tests. |
+| `npm run test:e2e` | Root | Runs Chromium messaging, video-call, and file-transfer tests. |
+| `npm run test:db:up` / `npm run test:db:down` | Root | Starts or stops the isolated local PostgreSQL test container. |
 
 ---
 

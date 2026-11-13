@@ -1,3 +1,4 @@
+// Defines the client files scanned by Tailwind and PeerShare's shared design tokens.
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',

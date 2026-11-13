@@ -1,6 +1,8 @@
+/** Banner for incoming one-to-one call and file-transfer invitations. */
 import React from 'react'
 import { IconFile, IconPhone, IconVideo } from '../icons/MessageIcons'
 
+/** Adapts the invitation actions and labels to the incoming media type. */
 export function IncomingPeerInviteBanner({ invite, onAccept, onDecline, onOpenChat }) {
   if (!invite) return null
 

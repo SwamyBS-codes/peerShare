@@ -1,3 +1,4 @@
+/** Compact PeerShare brand icon used across navigation and empty states. */
 export default function BrandMark({ className = 'h-9 w-9' }) {
   return (
     <span

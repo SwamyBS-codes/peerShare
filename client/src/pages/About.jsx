@@ -1,3 +1,4 @@
+/** About page describing PeerShare's purpose and technology stack. */
 const stack = [
   ['React 19', 'Real-time UI and chat state.'],
   ['WebRTC', 'Direct calls and file data channels.'],
@@ -7,6 +8,7 @@ const stack = [
   ['Tailwind CSS', 'Responsive messenger layout.'],
 ]
 
+/** Presents the product overview and the tools used to build it. */
 export default function About() {
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">

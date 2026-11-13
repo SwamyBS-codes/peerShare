@@ -11,6 +11,15 @@
     "build": "npm --prefix client run build",
     "start": "npm --prefix server run start",
     "prod": "npm run build; npm run start",
-    "lint": "npm --prefix client run lint"
+    "lint": "npm --prefix client run lint",
+    "test:unit": "npm --prefix client run test:unit && npm --prefix server run test:unit",
+    "test:integration": "npm --prefix server run test:integration",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:db:up": "docker compose -f docker-compose.test.yml up -d --wait",
+    "test:db:down": "docker compose -f docker-compose.test.yml down --remove-orphans"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
   }
 }

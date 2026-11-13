@@ -1,3 +1,5 @@
+/** Sidebar summary of peer presence, transfer activity, and call status. */
+
 function Stat({ label, value, tone = 'text-slate-700 dark:text-slate-200' }) {
   return (
     <div className="flex items-center justify-between py-2.5 text-xs">
@@ -7,6 +9,7 @@ function Stat({ label, value, tone = 'text-slate-700 dark:text-slate-200' }) {
   )
 }
 
+/** Shows live network and privacy details beside the active conversation. */
 export function ActivityPanel({ friends, transferState, transferSpeed, activeCall, darkMode = true }) {
   const online = friends.filter((friend) => friend.isOnline)
   const cardClass =

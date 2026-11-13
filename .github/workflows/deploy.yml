@@ -1,12 +1,7 @@
 name: Deploy Backend to EC2
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'server/**'
-      - '.github/workflows/deploy.yml'
+  workflow_call:
 
 env:
   REGISTRY: ghcr.io
@@ -57,7 +52,7 @@ jobs:
           echo "OWNER_LC=${OWNER,,}" >>${GITHUB_ENV}
         env:
           OWNER: '${{ github.repository_owner }}'
-          
+
       - name: Execute deployment via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -65,21 +60,12 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Exit immediately if a command exits with a non-zero status
             set -e
-            
-            # Log in to GHCR
+
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Pull the new image (using the main tag)
             docker pull ghcr.io/${{ env.OWNER_LC }}/peershare-backend:main
-            
-            # Stop and remove the existing container if it exists
             docker stop peershare-backend || true
             docker rm peershare-backend || true
-            
-            # Run the new container
-            # Make sure you have a .env file created on the EC2 instance in the user's home directory
             docker run -d \
               --name peershare-backend \
               -p 3001:3001 \
@@ -87,8 +73,5 @@ jobs:
               --restart unless-stopped \
               ghcr.io/${{ env.OWNER_LC }}/peershare-backend:main
 
-            # Wait a few seconds for the container to be fully initialized
             sleep 5
-            
-            # Run database migrations automatically inside the running container
             docker exec peershare-backend npx prisma migrate deploy

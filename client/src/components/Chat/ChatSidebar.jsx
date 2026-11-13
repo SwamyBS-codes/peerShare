@@ -1,3 +1,4 @@
+/** Chat list and controls for contacts, groups, account settings, and link sharing. */
 import React, { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BrandMark from '../BrandMark'
@@ -16,7 +17,9 @@ import { CreateGroupModal } from './CreateGroupModal'
 import { ShareLinkModal } from './ShareLinkModal'
 import { SettingsModal } from '../Settings/SettingsModal'
 import { UserAvatar } from '../UserAvatar'
+import { formatLastSeen } from '../../utils/lastSeen'
 
+/** Presents searchable conversations and coordinates the sidebar's dialogs. */
 export function ChatSidebar({
   darkMode = true,
   onToggleDarkMode,
@@ -74,6 +77,7 @@ export function ChatSidebar({
     setMobileView('chat')
   }
 
+  // Clears the active session and returns the user to sign-in.
   const logout = () => {
     authService.logout()
     window.dispatchEvent(new Event('auth-change'))
@@ -265,7 +269,7 @@ export function ChatSidebar({
                     <b className="truncate text-[17px] font-normal text-[#111b21] dark:text-[#e9edef]">{friend.friendUserId}</b>
                   </span>
                   <span className="mt-0.5 block truncate text-sm text-chat-muted dark:text-chat-mutedDark">
-                    {friend.isOnline ? 'online' : 'last seen recently'}
+                    {friend.isOnline ? 'online' : formatLastSeen(friend.lastSeenAt)}
                   </span>
                 </span>
                 {unread ? (

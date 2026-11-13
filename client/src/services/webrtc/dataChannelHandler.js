@@ -1,8 +1,11 @@
+/** Attaches control and binary-frame handling to WebRTC data channels. */
+/** Routes incoming channel messages and reports control-channel state changes. */
 export class DataChannelHandler {
   constructor(service) {
     this.service = service
   }
 
+  /** Configures channel callbacks and decodes PeerShare binary transfer frames. */
   attachDataChannel(peerId, channel) {
     const { peers, handlers, routeMonitor } = this.service
     const state = peers.get(peerId)
@@ -86,6 +89,7 @@ export class DataChannelHandler {
     }
   }
 
+  /** Tracks receiver acknowledgements and resolves matching transfer waiters. */
   handleInternalControlMessage(payload) {
     const { fileAckBytes, pendingAckResolvers } = this.service
 

@@ -13,6 +13,7 @@ model User {
   passwordHash String
   avatarUrl    String?  @db.Text
   createdAt    DateTime @default(now())
+  lastSeenAt   DateTime @default(now())
 
   // Relations
   sentFriendships     Friendship[] @relation("User1Friendships")

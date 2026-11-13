@@ -1,8 +1,10 @@
+/** Account settings dialog for profile, avatar, and password updates. */
 import React, { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { UserAvatar } from '../UserAvatar'
 import { authService } from '../../services/authService'
 
+/** Loads account settings and provides forms for updating profile credentials. */
 export function SettingsModal({ open, onClose, onProfileUpdated }) {
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
@@ -43,6 +45,7 @@ export function SettingsModal({ open, onClose, onProfileUpdated }) {
 
   if (!open) return null
 
+  // Validates a selected image and previews it as a data URL.
   const handleAvatarPick = (event) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -62,6 +65,7 @@ export function SettingsModal({ open, onClose, onProfileUpdated }) {
     event.target.value = ''
   }
 
+  // Persists profile edits and refreshes the session when the username changes.
   const handleSaveProfile = async (event) => {
     event.preventDefault()
     setSavingProfile(true)
@@ -92,6 +96,7 @@ export function SettingsModal({ open, onClose, onProfileUpdated }) {
     }
   }
 
+  // Validates the confirmation and submits a password change.
   const handleSavePassword = async (event) => {
     event.preventDefault()
     if (newPassword !== confirmPassword) {

@@ -1,3 +1,4 @@
+/** Shared constants and identifiers for the PeerShare file-transfer protocol. */
 export const DEFAULT_CHUNK_SIZE = 64 * 1024
 export const MIN_CHUNK_SIZE = 4 * 1024
 export const MAX_CHUNK_SIZE = 1024 * 1024
@@ -11,6 +12,7 @@ export function createFileId(file, index) {
   return `${index}:${file.name}:${file.size}:${file.lastModified}`
 }
 
+/** Builds a stable transfer identifier from the ordered file list. */
 export function createTransferId(files) {
   const signature = files
     .map((file, index) => createFileId(file, index))
@@ -18,6 +20,7 @@ export function createTransferId(files) {
   return `transfer:${signature}`
 }
 
+/** Clamps the requested chunk size to the supported transfer range. */
 export function normalizeChunkSize(value) {
   if (!Number.isFinite(value)) {
     return DEFAULT_CHUNK_SIZE
@@ -25,6 +28,7 @@ export function normalizeChunkSize(value) {
   return Math.min(Math.max(Math.floor(value), MIN_CHUNK_SIZE), MAX_CHUNK_SIZE)
 }
 
+/** Computes the 64-bit FNV-1a hash used in binary transfer frame headers. */
 export function fnv1a64(str) {
   let hVal = 0xcbf29ce484222325n
   for (let i = 0; i < str.length; i++) {
@@ -40,4 +44,3 @@ export function detectBrowser() {
   if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari'
   return 'Chrome'
 }
-

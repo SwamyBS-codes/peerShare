@@ -1,3 +1,5 @@
+/** Transfer progress display with optional speed and estimated completion time. */
+
 function formatSpeed(bytesPerSec) {
   if (!bytesPerSec || bytesPerSec <= 0) return '0 B/s'
   const units = ['B/s', 'KB/s', 'MB/s', 'GB/s']
@@ -18,6 +20,7 @@ function formatETA(seconds) {
   return `${minutes}m ${remainingSecs}s remaining`
 }
 
+/** Calculates the remaining time and renders a themed transfer progress bar. */
 export default function ProgressBar({ label, progress, speed, totalBytes, tone = 'sky' }) {
   const colorClass = tone === 'emerald' 
     ? 'from-emerald-450 via-teal-500 to-cyan-500 shadow-emerald-500/30' 

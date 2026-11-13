@@ -1,4 +1,5 @@
-import { motion } from 'framer-motion'
+/** Animated illustration of peers exchanging files and establishing a video link. */
+import { motion as Motion } from 'framer-motion'
 
 const packets = [
   { delay: 0, color: 'from-violet-400 to-indigo-500', label: 'PDF' },
@@ -10,7 +11,7 @@ const packets = [
 function DeviceNode({ side, accent }) {
   const isLeft = side === 'left'
   return (
-    <motion.div
+    <Motion.div
       className="auth-device-node absolute top-1/2 w-[88px] sm:w-[104px]"
       style={{
         left: isLeft ? '8%' : 'auto',
@@ -50,7 +51,7 @@ function DeviceNode({ side, accent }) {
             )}
           </div>
           <div className="h-1 overflow-hidden rounded-full bg-slate-800">
-            <motion.div
+            <Motion.div
               className={`h-full rounded-full bg-gradient-to-r ${isLeft ? 'from-indigo-500 to-violet-500' : 'from-cyan-500 to-teal-400'}`}
               animate={{ width: ['20%', '95%', '35%'] }}
               transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
@@ -61,7 +62,7 @@ function DeviceNode({ side, accent }) {
       <p className={`mt-2 text-center text-[9px] font-black uppercase tracking-[0.2em] ${accent.label}`}>
         {isLeft ? 'Peer A' : 'Peer B'}
       </p>
-    </motion.div>
+    </Motion.div>
   )
 }
 
@@ -87,7 +88,7 @@ function TransferPacket({ delay, color, label }) {
 
 function VideoFrameOrbit() {
   return (
-    <motion.div
+    <Motion.div
       className="auth-video-orbit absolute left-1/2 top-[18%] h-20 w-28 -translate-x-1/2"
       animate={{ rotateY: 360 }}
       transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
@@ -103,7 +104,7 @@ function VideoFrameOrbit() {
             <span className="text-[7px] font-bold uppercase tracking-wider text-cyan-300/90">Live P2P</span>
           </div>
           <div className="relative flex flex-1 items-center justify-center bg-gradient-to-br from-indigo-950/80 to-cyan-950/60">
-            <motion.div
+            <Motion.div
               className="h-8 w-8 rounded-full border-2 border-cyan-400/50"
               animate={{ scale: [1, 1.08, 1], opacity: [0.6, 1, 0.6] }}
               transition={{ duration: 2, repeat: Infinity }}
@@ -114,10 +115,11 @@ function VideoFrameOrbit() {
           </div>
         </div>
       </div>
-    </motion.div>
+    </Motion.div>
   )
 }
 
+/** Renders the responsive animated transfer scene used on authentication pages. */
 export default function AuthTransferScene3D({ compact = false }) {
   return (
     <div
@@ -157,7 +159,7 @@ export default function AuthTransferScene3D({ compact = false }) {
             }}
           />
 
-          <motion.div
+          <Motion.div
             className="absolute bottom-[12%] left-1/2 -translate-x-1/2 rounded-full border border-white/10 bg-slate-950/70 px-4 py-1.5 backdrop-blur-md"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -166,7 +168,7 @@ export default function AuthTransferScene3D({ compact = false }) {
             <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-transparent bg-gradient-to-r from-indigo-300 via-fuchsia-300 to-cyan-300 bg-clip-text">
               WebRTC · Direct tunnel
             </p>
-          </motion.div>
+          </Motion.div>
         </div>
       </div>
 

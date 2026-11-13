@@ -1,3 +1,4 @@
+// Minimal server-rendering harness for manually checking the call-overlay condition.
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 

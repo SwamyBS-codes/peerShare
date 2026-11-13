@@ -1,6 +1,7 @@
 // writerWorker.js - Synchronous File Writer Worker using OPFS SyncAccessHandle
 let accessHandle = null
 
+/** Handles initialization, positioned writes, and closure of the OPFS access handle. */
 self.onmessage = async (event) => {
   const { type, payload } = event.data
 

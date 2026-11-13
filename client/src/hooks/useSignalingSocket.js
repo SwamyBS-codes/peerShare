@@ -1,3 +1,4 @@
+/** Provides a reconnecting authenticated WebSocket for link-based signaling sessions. */
 import { useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
 

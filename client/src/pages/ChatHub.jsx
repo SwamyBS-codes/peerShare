@@ -1,3 +1,4 @@
+/** Main authenticated workspace coordinating chats, groups, signaling, and calls. */
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { authService } from '../services/authService'
 import toast from 'react-hot-toast'
@@ -16,6 +17,7 @@ import { useWebRTCFile } from '../hooks/useWebRTCFile'
 import { useWebRTCLinkFile } from '../hooks/useWebRTCLinkFile'
 import { mergeDeliveryMetadata } from '../utils/messageDelivery'
 
+/** Loads account and conversation data, wires peer hooks, and renders chat UI. */
 export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
   const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser())
   const [userProfile, setUserProfile] = useState(null)
@@ -64,7 +66,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
   // Sync online status when friends are loaded or updated
   useEffect(() => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && friends.length > 0) {
-      const friendNames = friends
+      const friendNames = friendsRef.current
         .filter(f => f.status === 'accepted')
         .map(f => (f.friendUserId || '').trim())
         .filter(Boolean)
@@ -92,12 +94,12 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
   const {
     selectedFile, setSelectedFile, transferState, setTransferState,
     transferProgress, setTransferProgress, transferSpeed, transferFileName, setTransferFileName,
-    transferFileSize, setTransferFileSize, fileNoteRef, currentFileRef,
+    setTransferFileSize, fileNoteRef, currentFileRef,
     fileInviteIdRef, receiverInviteIdRef, cancelFileTransfer, cleanupFileTransfer,
     handleFileChange, handleAcceptInlineFileInvite, handleDeclineInlineFileInvite,
     initiateFileWebRTCConnection, handleFileSignaling
   } = useWebRTCFile({
-    wsRef, setMessages, toast, iceServers, selectedFriendRef
+    wsRef, setMessages, toast, iceServers
   })
 
   const {
@@ -194,6 +196,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
 
   // --- Core API Functions ---
 
+  // Loads contacts and refreshes their presence if signaling is already open.
   const fetchFriends = async () => {
     try {
       const res = await authService.fetchAuth('/api/friends')
@@ -217,6 +220,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
     }
   }
 
+  // Loads the current user's group conversations.
   const fetchGroups = async () => {
     try {
       const res = await authService.fetchAuth('/api/groups')
@@ -277,6 +281,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
     if (mobileView === 'sidebar') setMobileView('chat')
   }
 
+  // Creates a group, adds it to the sidebar, and selects it on success.
   const handleCreateGroup = async (name, memberUserIds) => {
     setCreatingGroup(true)
     try {
@@ -325,7 +330,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
       } else {
         toast.error(data.message)
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to add friend.')
     }
   }
@@ -343,11 +348,12 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
       } else {
         toast.error(data.message)
       }
-    } catch (err) {
+    } catch {
       toast.error('Failed to accept request.')
     }
   }
 
+  // Persists a voice-note activity and signals its text summary to the peer.
   const handleSendVoiceNote = async (blob, durationSeconds = 0) => {
     if (!selectedFriend || !blob) return
 
@@ -409,6 +415,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
     }
   }
 
+  // Sends the selected file invitation or persists and signals a text message.
   const handleSendMessage = async (e) => {
     e.preventDefault()
     if (!selectedFriend) return
@@ -609,6 +616,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
     dismissPeerInvite()
   }
 
+  // Declines the pending file or call invite and clears the banner.
   const handlePeerInviteDecline = () => {
     if (!incomingPeerInvite) return
     const { senderUserId, mediaType, activity } = incomingPeerInvite
@@ -628,6 +636,7 @@ export default function ChatHub({ darkMode = true, onToggleDarkMode }) {
     dismissPeerInvite()
   }
 
+  // Opens the inviter's chat and routes the accepted call or file invite.
   const handlePeerInviteAccept = () => {
     if (!incomingPeerInvite) return
     const { senderUserId, mediaType, activity } = incomingPeerInvite

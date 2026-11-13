@@ -26,6 +26,7 @@ function fnv1a64(str) {
   return hVal
 }
 
+/** Dispatches transfer setup, channel updates, retransmissions, and chunk requests. */
 self.onmessage = async (event) => {
   const { type, payload } = event.data
 
@@ -86,6 +87,7 @@ self.onmessage = async (event) => {
   }
 }
 
+/** Precomputes SHA-256 hashes for file blocks so receivers can verify transfers. */
 async function calculateBlockHashes() {
   for (let i = 0; i < files.length; i++) {
     const file = files[i]
@@ -119,6 +121,7 @@ async function calculateBlockHashes() {
   }
 }
 
+/** Queues every chunk belonging to a block requested again by the receiver. */
 function queueBlockRetransmissions(fileIndex, blockIndex) {
   const file = files[fileIndex]
   if (!file) return
@@ -142,6 +145,7 @@ function queueBlockRetransmissions(fileIndex, blockIndex) {
   }
 }
 
+/** Selects the least-buffered active data channel for the next chunk. */
 function getRouteTargetChannel() {
   // Candidate channels restricted to the activeCount pool size
   const enabledChannels = channelStats.slice(0, activeCount)
@@ -163,6 +167,7 @@ function getRouteTargetChannel() {
   return candidates[0].index
 }
 
+/** Reads queued chunks, builds protocol packets, and posts them for transmission. */
 async function readAndSendNext() {
   isReading = true
 

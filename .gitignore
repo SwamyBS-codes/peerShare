@@ -6,6 +6,9 @@ server/node_modules/
 # Build outputs
 client/dist/
 server/dist/
+playwright-report/
+test-results/
+playwright-logs/
 
 # Environment files
 .env

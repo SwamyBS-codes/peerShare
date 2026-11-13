@@ -1,5 +1,18 @@
 const prisma = require('../services/prisma');
 
+async function areAcceptedPeers(userId, peerId) {
+  return Boolean(await prisma.friendship.findFirst({
+    where: {
+      status: 'accepted',
+      OR: [
+        { userId1: userId, userId2: peerId },
+        { userId1: peerId, userId2: userId },
+      ],
+    },
+    select: { id: true },
+  }));
+}
+
 /**
  * Get unified activity logs (messages, calls, files) between two users.
  */
@@ -10,6 +23,9 @@ async function getActivities(req, res) {
 
     if (!friendId) {
       return res.status(400).json({ ok: false, message: 'Friend ID is required.' });
+    }
+    if (!(await areAcceptedPeers(myId, friendId))) {
+      return res.status(403).json({ ok: false, message: 'You are not connected to this user.' });
     }
 
     const logs = await prisma.activity.findMany({
@@ -69,6 +85,9 @@ async function createActivity(req, res) {
     if (!receiver) {
       return res.status(404).json({ ok: false, message: 'Receiver not found.' });
     }
+    if (!(await areAcceptedPeers(myId, receiverId))) {
+      return res.status(403).json({ ok: false, message: 'You are not connected to this user.' });
+    }
 
     const log = await prisma.activity.create({
       data: {
@@ -101,6 +120,9 @@ async function updateActivity(req, res) {
 
     if (!existingLog) {
       return res.status(404).json({ ok: false, message: 'Activity not found.' });
+    }
+    if (existingLog.senderId !== req.user.id && existingLog.receiverId !== req.user.id) {
+      return res.status(403).json({ ok: false, message: 'You cannot update this activity.' });
     }
 
     const updatedLog = await prisma.activity.update({

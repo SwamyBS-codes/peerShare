@@ -1,5 +1,7 @@
+/** Compact progress and cancellation controls for an active file transfer. */
 import React from 'react'
 
+/** Displays transfer state, progress, speed, and an available cancel action. */
 export function FileTransferOverlay({
   transferState,
   transferFileName,

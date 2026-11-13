@@ -1,4 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion'
+/** Sign-in page with email/password authentication and password recovery. */
+import { AnimatePresence } from 'framer-motion'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
@@ -6,6 +7,7 @@ import AuthLayout from '../components/auth/AuthLayout'
 import { IconLock } from '../components/icons/MessageIcons'
 import { authService } from '../services/authService'
 
+/** Authenticates the user and manages the optional password-reset flow. */
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +25,7 @@ export default function Login() {
   const [searchParams] = useSearchParams()
   const redirectTo = searchParams.get('redirect')
 
+  // Logs in, broadcasts the session change, and follows only a local redirect.
   const handleLogin = async (event) => {
     event.preventDefault()
     if (!email || !password) {
@@ -51,6 +54,7 @@ export default function Login() {
     }
   }
 
+  // Requests a one-time password-reset code for the entered email.
   const handleForgotPasswordRequest = async () => {
     if (!resetEmail) {
       toast.error('Enter your email to receive a reset code.')
@@ -70,6 +74,7 @@ export default function Login() {
     }
   }
 
+  // Validates the reset details and submits the new password.
   const handlePasswordReset = async () => {
     if (!resetEmail || !resetOtp || !newPassword) {
       toast.error('Email, reset code, and new password are required.')
