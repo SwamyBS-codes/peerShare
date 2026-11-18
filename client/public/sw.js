@@ -61,7 +61,7 @@ self.addEventListener('fetch', (event) => {
           }
 
           return response
-        } catch (error) {
+        } catch  {
           const cache = await caches.open(CACHE_NAME)
 
           return (
@@ -99,7 +99,7 @@ self.addEventListener('fetch', (event) => {
           }
 
           return response
-        } catch (error) {
+        } catch  {
           return new Response('Resource unavailable offline', {
             status: 503,
             statusText: 'Service Unavailable',

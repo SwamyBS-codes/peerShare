@@ -181,15 +181,10 @@ npm --prefix server run test:db:migrate
 npm run test:integration
 ```
 
-Seed test accounts and run the Playwright scenarios. Playwright starts and shuts down the API and Vite development server; it uses the test database URL above:
+Run the complete local E2E setup and Playwright suite with one command. It starts the isolated database, applies migrations, installs Chromium if needed, creates temporary test accounts, runs the tests, then cleans up the accounts and database:
 
 ```bash
-export E2E_TEST_PASSWORD="$(openssl rand -hex 24)"
-npm --prefix server run test:e2e:seed
-npm run test:e2e:install
-npm run test:e2e
-npm --prefix server run test:e2e:clean
-npm run test:db:down
+npm run test:e2e:local
 ```
 
 Messaging tests verify live delivery and history after a page reload. File-transfer tests compare the downloaded bytes and SHA-256 digest. Video-call tests inspect RTCPeerConnection states and received audio/video tracks. HTML reports, traces, failure screenshots/videos, and service logs are retained under ignored output directories.
@@ -241,6 +236,7 @@ GitHub Actions runs client checks, PostgreSQL-backed server checks, and browser 
 | `npm run test:unit` | Root | Runs client and server unit tests. |
 | `npm run test:integration` | Root | Runs PostgreSQL-backed API and WebSocket integration tests. |
 | `npm run test:e2e` | Root | Runs Chromium messaging, video-call, and file-transfer tests. |
+| `npm run test:e2e:local` | Root | Sets up the local E2E environment, runs Playwright, and cleans up. |
 | `npm run test:db:up` / `npm run test:db:down` | Root | Starts or stops the isolated local PostgreSQL test container. |
 
 ---
