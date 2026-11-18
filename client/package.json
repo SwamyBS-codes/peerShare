@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test:unit": "vitest run --config vitest.config.js",
     "preview": "vite preview",
-    "serve": "npx serve dist -s -p 5001"
+    "serve": "npx serve dist -s -p 5173"
   },
   "dependencies": {
     "autoprefixer": "^10.4.27",
