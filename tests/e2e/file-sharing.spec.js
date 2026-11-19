@@ -35,3 +35,33 @@ test('transfers a fixture over WebRTC and preserves its bytes', async ({ browser
     await Promise.all([contextA.close(), contextB.close()])
   }
 })
+
+test('streams a larger file through the bounded receiver queue', async ({ browser }) => {
+  const { contextA, contextB, pageA, pageB } = await createPeerChats(browser, userA, userB)
+  const original = Buffer.alloc(2 * 1024 * 1024)
+  for (let i = 0; i < original.length; i++) original[i] = i % 251
+
+  try {
+    await pageA.locator('input[type="file"]').setInputFiles({
+      name: 'large-queue-test.bin',
+      mimeType: 'application/octet-stream',
+      buffer: original,
+    })
+    await pageA.getByRole('button', { name: 'Send' }).click()
+    await expect(pageB.getByText('Incoming file', { exact: true })).toBeVisible()
+    await pageB.getByRole('button', { name: 'Accept' }).click()
+
+    const downloadLink = pageB.getByRole('link', { name: 'Download' })
+    await expect(downloadLink).toBeVisible({ timeout: 30000 })
+    const downloadPromise = pageB.waitForEvent('download')
+    await downloadLink.click()
+    const download = await downloadPromise
+    const downloaded = await fs.readFile(await download.path())
+
+    expect(downloaded.byteLength).toBe(original.byteLength)
+    expect(createHash('sha256').update(downloaded).digest('hex'))
+      .toBe(createHash('sha256').update(original).digest('hex'))
+  } finally {
+    await Promise.all([contextA.close(), contextB.close()])
+  }
+})

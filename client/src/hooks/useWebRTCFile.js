@@ -1,6 +1,12 @@
 /** Manages one-to-one WebRTC file-transfer state, signaling, and chunk delivery. */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { FileWriter } from '../services/webrtc/fileWriter';
+import { ChunkWriteQueue } from '../services/webrtc/chunkWriteQueue';
+
+const CHUNK_SIZE = 16 * 1024;
+const MAX_IN_FLIGHT_BYTES = 512 * 1024;
+const MAX_QUEUED_BYTES = 1024 * 1024;
 
 /** Provides the state and handlers for sending or receiving a file over WebRTC. */
 export function useWebRTCFile({
@@ -18,8 +24,12 @@ export function useWebRTCFile({
 
   const filePcRef = useRef(null);
   const fileChannelRef = useRef(null);
-  const fileChunksRef = useRef([]);
+  const fileWriterRef = useRef(null);
+  const completedDownloadsRef = useRef([]);
+  const chunkQueueRef = useRef(null);
+  const fileSenderAckRef = useRef(null);
   const receivedBytesRef = useRef(0);
+  const writtenBytesRef = useRef(0);
   const fileReaderRef = useRef(null);
   const fileTransferCancelledRef = useRef(false);
   const currentFileRef = useRef(null);
@@ -29,6 +39,14 @@ export function useWebRTCFile({
   const fileInviteIdRef = useRef(null);
   const receiverInviteIdRef = useRef(null);
   const filePendingCandidatesRef = useRef([]);
+
+  useEffect(() => () => {
+    for (const { writer, url } of completedDownloadsRef.current) {
+      URL.revokeObjectURL(url);
+      void writer.cleanup();
+    }
+    completedDownloadsRef.current = [];
+  }, []);
 
   // Utility to format file size inline to avoid missing dependency
   const formatSize = (bytes) => {
@@ -50,6 +68,18 @@ export function useWebRTCFile({
   };
 
   const cleanupFileTransfer = () => {
+    fileSenderAckRef.current = null;
+    const queue = chunkQueueRef.current;
+    queue?.fail(new Error('File transfer closed'));
+    chunkQueueRef.current = null;
+    if (fileWriterRef.current) {
+      const writer = fileWriterRef.current;
+      fileWriterRef.current = null;
+      void (async () => {
+        await queue?.whenIdle();
+        await writer.cleanup();
+      })();
+    }
     if (filePcRef.current) {
       filePcRef.current.close();
       filePcRef.current = null;
@@ -58,8 +88,8 @@ export function useWebRTCFile({
       fileChannelRef.current.close();
       fileChannelRef.current = null;
     }
-    fileChunksRef.current = [];
     receivedBytesRef.current = 0;
+    writtenBytesRef.current = 0;
     currentFileRef.current = null;
     fileNoteRef.current = '';
     fileInviteIdRef.current = null;
@@ -249,11 +279,10 @@ export function useWebRTCFile({
 
   const setupSenderDataChannel = (channel) => {
     channel.binaryType = 'arraybuffer';
+    channel.bufferedAmountLowThreshold = 64 * 1024;
+    let flowStarted = false;
 
-    channel.onopen = () => {
-      setTransferState('sending');
-      startSendingFileChunks(channel);
-    };
+    channel.onopen = () => setTransferState('connecting');
 
     channel.onclose = () => {
       console.log('[WebRTC File] Data channel closed');
@@ -266,30 +295,110 @@ export function useWebRTCFile({
           setTransferState('failed');
           toast.error('Recipient cancelled the transfer');
           cleanupFileTransfer();
+          return;
+        }
+
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'flow-ready' && !flowStarted &&
+              Number.isSafeInteger(message.windowBytes) && message.windowBytes > 0) {
+            flowStarted = true;
+            setTransferState('sending');
+            startSendingFileChunks(channel, Math.min(message.windowBytes, MAX_IN_FLIGHT_BYTES));
+          } else if (message.type === 'flow-ack') {
+            fileSenderAckRef.current?.(message.writtenBytes);
+          }
+        } catch (err) {
+          console.warn('[WebRTC File] Ignoring invalid transfer control message:', err);
         }
       }
     };
   };
 
   /** Streams file slices through the data channel while updating progress and completion. */
-  const startSendingFileChunks = async (channel) => {
+  const startSendingFileChunks = async (channel, windowBytes) => {
     const file = currentFileRef.current;
-    if (!file) {
+    if (!file || !Number.isSafeInteger(windowBytes) || windowBytes <= 0) {
       setTransferState('failed');
       return;
     }
 
-    const chunkSize = 16 * 1024;
+    const chunkSize = CHUNK_SIZE;
     const fileReader = new FileReader();
     fileReaderRef.current = fileReader;
     let offset = 0;
+    let acknowledgedBytes = 0;
+    let waitingForAck = false;
+    let completed = false;
     let lastTime = Date.now();
     let bytesSentInInterval = 0;
 
     const readSlice = (o) => {
       if (fileTransferCancelledRef.current) return;
+      if (o - acknowledgedBytes >= windowBytes) {
+        waitingForAck = true;
+        return;
+      }
       const slice = file.slice(o, o + chunkSize);
       fileReader.readAsArrayBuffer(slice);
+    };
+
+    const finishSending = async () => {
+      if (completed) return;
+      completed = true;
+      setTransferState('completed');
+      const contentMsg = `Sent file: ${file.name} (${formatSize(file.size)})${fileNoteRef.current ? ` - "${fileNoteRef.current}"` : ''}`;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === fileInviteIdRef.current
+            ? { ...m, type: 'file', metadata: { ...m.metadata, status: 'completed' } }
+            : m
+        )
+      );
+
+      try {
+        await authService.fetchAuth(`/api/activities/${fileInviteIdRef.current}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            type: 'file',
+            content: contentMsg,
+            metadata: {
+              name: file.name,
+              size: file.size,
+              note: fileNoteRef.current,
+              status: 'completed'
+            }
+          })
+        });
+      } catch (err) {
+        console.error('Failed to log message in DB:', err);
+      }
+
+      setTimeout(() => {
+        setTransferState(null);
+        cleanupFileTransfer();
+      }, 3000);
+    };
+
+    fileSenderAckRef.current = (writtenBytes) => {
+      if (!Number.isSafeInteger(writtenBytes) || writtenBytes < acknowledgedBytes || writtenBytes > offset) return;
+      acknowledgedBytes = writtenBytes;
+      const now = Date.now();
+      const elapsed = now - lastTime;
+      if (elapsed >= 500 || acknowledgedBytes >= file.size) {
+        setTransferProgress(Math.floor((acknowledgedBytes / Math.max(file.size, 1)) * 100));
+        setTransferSpeed(Math.floor((bytesSentInInterval * 1000) / Math.max(elapsed, 1)));
+        bytesSentInInterval = 0;
+        lastTime = now;
+      }
+
+      if (waitingForAck && offset < file.size) {
+        waitingForAck = false;
+        readSlice(offset);
+      } else if (offset >= file.size && acknowledgedBytes === file.size) {
+        void finishSending();
+      }
     };
 
     fileReader.onload = async (e) => {
@@ -308,16 +417,6 @@ export function useWebRTCFile({
       offset += buffer.byteLength;
       bytesSentInInterval += buffer.byteLength;
 
-      const now = Date.now();
-      const elapsed = now - lastTime;
-      if (elapsed >= 500 || offset >= file.size) {
-        const pct = Math.floor((offset / file.size) * 100);
-        setTransferProgress(pct);
-        setTransferSpeed(Math.floor((bytesSentInInterval * 1000) / elapsed));
-        bytesSentInInterval = 0;
-        lastTime = now;
-      }
-
       if (offset < file.size) {
         if (channel.bufferedAmount > 64 * 1024) {
           channel.onbufferedamountlow = () => {
@@ -327,48 +426,8 @@ export function useWebRTCFile({
         } else {
           setTimeout(() => readSlice(offset), 0);
         }
-      } else {
-        setTransferState('completed');
-
-        const contentMsg = `Sent file: ${file.name} (${formatSize(file.size)})${fileNoteRef.current ? ` - "${fileNoteRef.current}"` : ''}`;
-
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === fileInviteIdRef.current
-              ? {
-                ...m,
-                type: 'file',
-                metadata: {
-                  ...m.metadata,
-                  status: 'completed'
-                }
-              }
-              : m
-          )
-        );
-
-        try {
-          await authService.fetchAuth(`/api/activities/${fileInviteIdRef.current}`, {
-            method: 'PATCH',
-            body: JSON.stringify({
-              type: 'file',
-              content: contentMsg,
-              metadata: {
-                name: file.name,
-                size: file.size,
-                note: fileNoteRef.current,
-                status: 'completed'
-              }
-            })
-          });
-        } catch (err) {
-          console.error('Failed to log message in DB:', err);
-        }
-
-        setTimeout(() => {
-          setTransferState(null);
-          cleanupFileTransfer();
-        }, 3000);
+      } else if (acknowledgedBytes === file.size) {
+        void finishSending();
       }
     };
 
@@ -378,11 +437,81 @@ export function useWebRTCFile({
   /** Collects incoming chunks and publishes a downloadable file when complete. */
   const setupReceiverDataChannel = (channel) => {
     channel.binaryType = 'arraybuffer';
-    fileChunksRef.current = [];
     receivedBytesRef.current = 0;
-    setTransferState('receiving');
+    writtenBytesRef.current = 0;
+    let receiverFailed = false;
+    let writerReady = false;
+    let channelOpen = false;
+    let readySent = false;
     let lastTime = Date.now();
     let bytesReceivedInInterval = 0;
+
+    const failReceiver = async (error) => {
+      if (receiverFailed) return;
+      receiverFailed = true;
+      console.error('[WebRTC File] Receiver write failed:', error);
+      setTransferState('failed');
+      toast.error('Could not save the received file. The transfer was stopped.');
+      chunkQueueRef.current?.fail(error);
+      if (channel.readyState === 'open') {
+        try {
+          channel.send('cancel');
+        } catch (sendError) {
+          console.warn('[WebRTC File] Failed to notify sender of write failure:', sendError);
+        }
+      }
+      const writer = fileWriterRef.current;
+      await chunkQueueRef.current?.whenIdle();
+      await writer?.cleanup();
+      fileWriterRef.current = null;
+      chunkQueueRef.current = null;
+    };
+
+    const announceReady = () => {
+      if (!readySent && channelOpen && writerReady && channel.readyState === 'open') {
+        readySent = true;
+        try {
+          channel.send(JSON.stringify({ type: 'flow-ready', windowBytes: MAX_IN_FLIGHT_BYTES }));
+          setTransferState('receiving');
+        } catch (error) {
+          void failReceiver(error);
+        }
+      }
+    };
+
+    const initializeWriter = async () => {
+      if (!Number.isSafeInteger(transferFileSizeRef.current) || transferFileSizeRef.current < 0) {
+        await failReceiver(new Error('Invalid incoming file size'));
+        return;
+      }
+      const writer = new FileWriter(
+        receiverInviteIdRef.current || `incoming-${Date.now()}`,
+        transferFileNameRef.current,
+        transferFileSizeRef.current,
+        'application/octet-stream'
+      );
+      fileWriterRef.current = writer;
+      try {
+        await writer.init();
+        if (writer.type === 'ram') {
+          throw new Error('Persistent browser storage is unavailable');
+        }
+        chunkQueueRef.current = new ChunkWriteQueue(
+          (offset, data) => writer.write(offset, data),
+          MAX_QUEUED_BYTES
+        );
+        writerReady = true;
+        announceReady();
+      } catch (error) {
+        await failReceiver(error);
+      }
+    };
+    void initializeWriter();
+
+    channel.onopen = () => {
+      channelOpen = true;
+      announceReady();
+    };
 
     channel.onmessage = async (event) => {
       if (typeof event.data === 'string') {
@@ -412,52 +541,81 @@ export function useWebRTCFile({
         return;
       }
 
+      if (receiverFailed || !chunkQueueRef.current) return;
       const buffer = event.data;
-      fileChunksRef.current.push(buffer);
-      receivedBytesRef.current += buffer.byteLength;
-      bytesReceivedInInterval += buffer.byteLength;
+      const totalSize = transferFileSizeRef.current;
+      if (!(buffer instanceof ArrayBuffer) || receivedBytesRef.current + buffer.byteLength > totalSize) {
+        await failReceiver(new Error('Received data exceeds the advertised file size'));
+        return;
+      }
 
-      const totalSize = transferFileSizeRef.current || 1;
+      const offset = receivedBytesRef.current;
+      receivedBytesRef.current += buffer.byteLength;
+      try {
+        await chunkQueueRef.current.enqueue(offset, buffer);
+      } catch (error) {
+        await failReceiver(error);
+        return;
+      }
+
+      const chunkEndOffset = offset + buffer.byteLength;
+      writtenBytesRef.current = chunkEndOffset;
+      bytesReceivedInInterval += buffer.byteLength;
       const now = Date.now();
       const elapsed = now - lastTime;
-      if (elapsed >= 500 || receivedBytesRef.current >= totalSize) {
-        const pct = Math.floor((receivedBytesRef.current / totalSize) * 100);
-        setTransferProgress(pct);
-        setTransferSpeed(Math.floor((bytesReceivedInInterval * 1000) / elapsed));
+      if (elapsed >= 500 || writtenBytesRef.current === totalSize) {
+        setTransferProgress(Math.floor((writtenBytesRef.current / Math.max(totalSize, 1)) * 100));
+        setTransferSpeed(Math.floor((bytesReceivedInInterval * 1000) / Math.max(elapsed, 1)));
         bytesReceivedInInterval = 0;
         lastTime = now;
       }
 
-      if (receivedBytesRef.current >= totalSize) {
-        setTransferState('completed');
+      if (channel.readyState === 'open') {
+        try {
+          channel.send(JSON.stringify({ type: 'flow-ack', writtenBytes: writtenBytesRef.current }));
+        } catch (error) {
+          await failReceiver(error);
+          return;
+        }
+      }
 
-        const blob = new Blob(fileChunksRef.current);
-        const downloadUrl = URL.createObjectURL(blob);
-        const capturedFileName = transferFileNameRef.current;
-        const capturedFileSize = transferFileSizeRef.current;
-            
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === receiverInviteIdRef.current
-              ? {
-                ...m,
-                type: 'file',
-                metadata: {
-                  ...m.metadata,
-                  name: capturedFileName,
-                  size: capturedFileSize,
-                  status: 'completed',
-                  downloadUrl
+      if (writtenBytesRef.current === totalSize) {
+        try {
+          await fileWriterRef.current.close();
+          const blob = await fileWriterRef.current.getFileBlob();
+          const downloadUrl = URL.createObjectURL(blob);
+          const capturedFileName = transferFileNameRef.current;
+          const capturedFileSize = transferFileSizeRef.current;
+          setTransferState('completed');
+          completedDownloadsRef.current.push({ writer: fileWriterRef.current, url: downloadUrl });
+          fileWriterRef.current = null;
+          chunkQueueRef.current = null;
+
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === receiverInviteIdRef.current
+                ? {
+                  ...m,
+                  type: 'file',
+                  metadata: {
+                    ...m.metadata,
+                    name: capturedFileName,
+                    size: capturedFileSize,
+                    status: 'completed',
+                    downloadUrl
+                  }
                 }
-              }
-              : m
-          )
-        );
+                : m
+            )
+          );
 
-        setTimeout(() => {
-          setTransferState(null);
-          cleanupFileTransfer();
-        }, 4000);
+          setTimeout(() => {
+            setTransferState(null);
+            cleanupFileTransfer();
+          }, 4000);
+        } catch (error) {
+          await failReceiver(error);
+        }
       }
     };
 
