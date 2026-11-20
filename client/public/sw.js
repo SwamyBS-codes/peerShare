@@ -1,56 +1,111 @@
-// Caches same-origin assets and fonts for offline use, while removing stale app caches.
 const CACHE_NAME = 'peershare-cache-v1'
 
-// Activate this worker immediately so new clients use the current cache policy.
-self.addEventListener('install', () => {
+// Install: Precache the application entry page.
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.add('/')
+    })
+  )
+
   self.skipWaiting()
 })
 
-// Remove older cache versions and take control of existing tabs.
+
+// Activate: Remove outdated PeerShare caches.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            return caches.delete(cache)
-          }
-        })
+        cacheNames
+          .filter(
+            (name) =>
+              name.startsWith('peershare-cache-') &&
+              name !== CACHE_NAME
+          )
+          .map((name) => caches.delete(name))
       )
     }).then(() => self.clients.claim())
   )
 })
 
-// Cache successful GET responses and serve cached resources when the network is unavailable.
+
+// Fetch: Handle requests using appropriate caching strategies.
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
+  const request = event.request
 
-  const url = new URL(event.request.url)
+  // Ignore non-GET requests.
+  if (request.method !== 'GET') return
+
+  const url = new URL(request.url)
+
   const isLocal = url.origin === self.location.origin
-  const isFont = url.hostname.includes('fonts.googleapis') || url.hostname.includes('fonts.gstatic')
 
-  if (isLocal || isFont) {
+  const isFont =
+    url.hostname.includes('fonts.googleapis.com') ||
+    url.hostname.includes('fonts.gstatic.com')
+
+  // Ignore external requests except Google Fonts.
+  if (!isLocal && !isFont) return
+
+  // 1. Navigation requests: Network First.
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.status === 200) {
-            const responseClone = response.clone()
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseClone)
-            })
+      (async () => {
+        try {
+          const response = await fetch(request)
+
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME)
+            await cache.put(request, response.clone())
           }
+
           return response
-        })
-        .catch(() => {
-          return caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-              return cachedResponse
-            }
-            if (event.request.mode === 'navigate') {
-              return caches.match('/')
-            }
+        } catch  {
+          const cache = await caches.open(CACHE_NAME)
+
+          return (
+            await cache.match(request) ||
+            await cache.match('/')
+          )
+        }
+      })()
+    )
+
+    return
+  }
+
+  // 2. Static assets and fonts: Cache First.
+  const isStaticAsset =
+    ['script', 'style', 'image', 'font'].includes(request.destination) ||
+    isFont
+
+  if (isStaticAsset) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME)
+
+        const cachedResponse = await cache.match(request)
+
+        if (cachedResponse) {
+          return cachedResponse
+        }
+
+        try {
+          const response = await fetch(request)
+
+          if (response.ok) {
+            await cache.put(request, response.clone())
+          }
+
+          return response
+        } catch  {
+          return new Response('Resource unavailable offline', {
+            status: 503,
+            statusText: 'Service Unavailable',
           })
-        })
+        }
+      })()
     )
   }
 })

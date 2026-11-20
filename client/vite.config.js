@@ -15,14 +15,6 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     define: {
       __BACKEND_URL__: JSON.stringify(backendUrl),
-    },
-    server: {
-      proxy: {
-        '/api': {
-          target: backendUrl,
-          changeOrigin: true,
-        }
-      }
     }
   }
 })

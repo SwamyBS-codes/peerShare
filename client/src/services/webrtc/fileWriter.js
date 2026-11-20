@@ -34,7 +34,6 @@ export class FileWriter {
         this.handle = fsaHandle
         this.writable = await fsaHandle.createWritable()
         this.type = 'fsa'
-        await this.verifyRandomWriteCapability()
         return
       } catch (err) {
         console.warn('[FileWriter] FSA initialization failed, falling back to OPFS:', err)
@@ -53,7 +52,6 @@ export class FileWriter {
         if (typeof this.handle.createWritable === 'function') {
           this.writable = await this.handle.createWritable()
           this.type = 'opfs'
-          await this.verifyRandomWriteCapability()
           return
         }
       }
@@ -183,10 +181,10 @@ export class FileWriter {
     return new Promise((resolve, reject) => {
       const transaction = this.db.transaction('chunks', 'readwrite')
       const store = transaction.objectStore('chunks')
-      // Store data as a blob or arraybuffer
-      const request = store.put({ offset, data })
-      request.onsuccess = () => resolve()
-      request.onerror = () => reject(request.error)
+      store.put({ offset, data })
+      transaction.oncomplete = () => resolve()
+      transaction.onerror = () => reject(transaction.error)
+      transaction.onabort = () => reject(transaction.error || new Error('IndexedDB write transaction aborted'))
     })
   }
 

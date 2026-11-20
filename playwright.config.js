@@ -16,6 +16,9 @@ if (!databaseName.includes('test') || !['localhost', '127.0.0.1', '::1'].include
 const jwtSecret = process.env.JWT_SECRET || randomBytes(32).toString('hex')
 const apiPort = process.env.TEST_API_PORT || '3101'
 const clientPort = process.env.TEST_CLIENT_PORT || '5174'
+if (!/^\d+$/.test(clientPort) || Number(clientPort) < 1 || Number(clientPort) > 65535) {
+  throw new Error('TEST_CLIENT_PORT must be a valid TCP port.')
+}
 const apiUrl = `http://127.0.0.1:${apiPort}`
 const clientUrl = `http://127.0.0.1:${clientPort}`
 const serverEnv = {
@@ -71,7 +74,7 @@ module.exports = defineConfig({
       env: serverEnv,
     },
     {
-      command: 'mkdir -p playwright-logs && npm --prefix client run dev -- --host 127.0.0.1 > playwright-logs/client.log 2>&1',
+      command: `mkdir -p playwright-logs && npm --prefix client run dev -- --host 127.0.0.1 --port ${clientPort} --strictPort > playwright-logs/client.log 2>&1`,
       url: `${clientUrl}/`,
       reuseExistingServer: false,
       timeout: 120000,

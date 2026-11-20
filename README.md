@@ -27,8 +27,8 @@ This repository is a monorepo containing both the modular Express signaling back
 ## Key Features
 
 - **Direct P2P Data Streaming:** Zero-intermediary transfers using WebRTC `RTCDataChannel` for maximum privacy and native bandwidth speeds.
-- **OPFS-Powered Multi-Threading:** Offloads receiver file assembly to dedicated Web Workers writing directly to the Origin Private File System (OPFS), enabling stable, low-overhead 1GB+ transfers without browser tab crashes.
-- **Custom Backpressure Flow Control:** Implements a sliding-window chunk acknowledgment protocol to regulate queue buffering and prevent browser memory exhaustion.
+- **Disk-Backed Receiving:** Writes incoming chunks to OPFS when available instead of assembling the complete file in a JavaScript chunk array.
+- **Bounded Backpressure Flow Control:** Limits outstanding unpersisted data and acknowledges chunks after storage writes complete, keeping receiver memory bounded and stopping transfers on write failures.
 - **HMAC SHA-256 Room Authentication:** The signaling server issues cryptographic session tokens (`senderToken` and `receiverToken`) to restrict connection establishment to authorized peers.
 - **Local Nearby Sharing:** Easily discover and connect to devices on the same network using short, temporary 4-digit pairing codes.
 - **Real-Time Analytics:** Interactive SVG charts and progressive metrics tracking throughput rates, transfer progress, and active transport paths (Direct P2P vs. TURN Relay).
@@ -68,10 +68,8 @@ This repository is a monorepo containing both the modular Express signaling back
 
 1. **Signaling & Handshake:** Peers connect via WebSockets using secure HMAC tokens. They exchange SDP offers/answers and ICE candidates.
 2. **Direct Connection:** Once connected, the WebSocket signaling connection is idle. All actual file chunks stream directly between peers.
-3. **Multi-Threaded Offloading:**
-   - **Sender:** A `transferWorker` handles slicing files and piping data into the WebRTC channel.
-   - **Receiver:** A `writerWorker` writes incoming chunks directly to OPFS in a background thread to prevent UI thread locks.
-4. **Flow Control:** Custom acknowledgment control packets prevent the sender from flooding the receiver's WebRTC buffer.
+3. **Chunk Persistence:** The receiver places incoming chunks in a bounded queue and serializes writes through `FileWriter` to OPFS, with browser-storage fallbacks. Chunks are acknowledged only after their writes finish.
+4. **Flow Control:** The sender limits unacknowledged bytes to a fixed window. As the receiver persists chunks, acknowledgements return capacity for more data; storage failures cancel the transfer instead of dropping chunks.
 
 ---
 
@@ -181,15 +179,10 @@ npm --prefix server run test:db:migrate
 npm run test:integration
 ```
 
-Seed test accounts and run the Playwright scenarios. Playwright starts and shuts down the API and Vite development server; it uses the test database URL above:
+Run the complete local E2E setup and Playwright suite with one command. It starts the isolated database, applies migrations, installs Chromium if needed, creates temporary test accounts, runs the tests, then cleans up the accounts and database:
 
 ```bash
-export E2E_TEST_PASSWORD="$(openssl rand -hex 24)"
-npm --prefix server run test:e2e:seed
-npm run test:e2e:install
-npm run test:e2e
-npm --prefix server run test:e2e:clean
-npm run test:db:down
+npm run test:e2e:local
 ```
 
 Messaging tests verify live delivery and history after a page reload. File-transfer tests compare the downloaded bytes and SHA-256 digest. Video-call tests inspect RTCPeerConnection states and received audio/video tracks. HTML reports, traces, failure screenshots/videos, and service logs are retained under ignored output directories.
@@ -209,8 +202,9 @@ GitHub Actions runs client checks, PostgreSQL-backed server checks, and browser 
 - **`connectionManager`:** Handles `RTCPeerConnection` instantiation, ICE candidate accumulation, and track/channel setup.
 - **`dataChannelHandler`:** Subscribes to events on the WebRTC data channel, routes message traffic, and manages raw incoming chunks.
 - **`fileSender`:** Slices files into chunks and sends them sequentially, checking the data channel's `bufferedAmount` to apply backpressure.
-- **`fileWriter`:** Directs the receiver-side chunk persistence flow, interacting with background writing threads.
-- **`writerWorker`:** A dedicated Web Worker utilizing the Origin Private File System (OPFS) to write binary file chunks directly to disk in a separate thread. This keeps the browser UI smooth and responsive even during 50+ MB/s transfers.
+- **`fileWriter`:** Writes receiver chunks to OPFS when available, with IndexedDB fallback; the receive hooks reject the RAM fallback.
+- **`chunkWriteQueue`:** Serializes receiver writes, limits queued bytes, and propagates storage failures to the transfer flow-control protocol.
+- **`writerWorker`:** Contains an OPFS worker implementation; the active receive hooks currently use the asynchronous `fileWriter` path.
 - **`hashWorker`:** An isolated Web Worker utilizing the Web Crypto API to calculate the SHA-256 checksum of the completed file to verify integrity.
 - **`transferWorker`:** Coordinates background thread tasks for active transfers and handles high-volume channel streaming.
 - **`resumeStore`:** Tracks partially downloaded chunks in IndexedDB to enable peer connection resumption without starting over.
@@ -241,6 +235,7 @@ GitHub Actions runs client checks, PostgreSQL-backed server checks, and browser 
 | `npm run test:unit` | Root | Runs client and server unit tests. |
 | `npm run test:integration` | Root | Runs PostgreSQL-backed API and WebSocket integration tests. |
 | `npm run test:e2e` | Root | Runs Chromium messaging, video-call, and file-transfer tests. |
+| `npm run test:e2e:local` | Root | Sets up the local E2E environment, runs Playwright, and cleans up. |
 | `npm run test:db:up` / `npm run test:db:down` | Root | Starts or stops the isolated local PostgreSQL test container. |
 
 ---
